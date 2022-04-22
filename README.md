@@ -1,8 +1,14 @@
 [![Build Status](https://dev.azure.com/lowrisc/ibex/_apis/build/status/lowRISC.ibex?branchName=master)](https://dev.azure.com/lowrisc/ibex/_build/latest?definitionId=3&branchName=master)
 
+# What will it be: OpenHW Group CORE-V CV32E2 RISC-V IP
+
+CV32E20 is a fork of the [Ibex](https://github.com/lowRISC/ibex) core.
+Differently to Ibex, cv32e2 will target low cost as originally intented in the ["Zero-riscy"](https://doi.org/10.1109/PATMOS.2017.8106976) project.
+The core will be made compatible with the OpenHW Group OBI protocol, it will use the same sleep unit of CV32E4 family, and it will achieve TRL5 with the industrial-level verification [core-v-verif](https://github.com/openhwgroup/core-v-verif).
+
 # Ibex RISC-V Core
 
-Ibex is a production-quality open source 32-bit RISC-V CPU core written in
+Ibex is a production-quality open source source 32-bit RISC-V CPU core written in
 SystemVerilog. The CPU core is heavily parametrizable and well suited for
 embedded control applications. Ibex is being extensively verified and has
 seen multiple tape-outs. Ibex supports the Integer (I) or Embedded (E),
