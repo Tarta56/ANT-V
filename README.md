@@ -11,8 +11,7 @@ CV32E20 is a production-quality open source source 32-bit RISC-V CPU core writte
 SystemVerilog. The CPU core is heavily parametrizable and well suited for
 embedded control applications. CV32E20 is being extensively verified and has
 seen multiple tape-outs. CV32E20 supports the Integer (I) or Embedded (E),
-Integer Multiplication and Division (M), Compressed (C), and B (Bit
-Manipulation) extensions.
+Integer Multiplication and Division (M), and Compressed (C) extensions.
 
 The block diagram below shows the *small* parametrization with a 2-stage
 pipeline.
@@ -25,6 +24,7 @@ contributed to [lowRISC](https://www.lowrisc.org) who maintains it and develops 
 It was further adopted by the OpenHW Group to work towards an improved industrialization
 
 ## Verification
+
 The verification environment for the CVE2 is _not_ in this Repository.  There is a small, simple testbench here which is
 useful for experimentation only and should not be used to validate any changes to the RTL prior to pushing to the master
 branch of this repo.
@@ -37,7 +37,7 @@ The Makefiles supported in the **core-v-verif** project automatically clone the 
 ## Changelog
 
 A changelog is generated automatically in the documentation from the individual pull requests.
-In order to enable automatic changelog generation within the CV32E40P documentation, the committer is required to label each pull request
+In order to enable automatic changelog generation within the documentation, the committer is required to label each pull request
 that touches any file in 'rtl' (or any of its subdirectories) with *Component:RTL* and label each pull request that touches any file in
 'docs' (or any of its subdirectories) with *Component:Doc*. Pull requests taht are not labeled or labeled with *ignore-for-release* are
 ignored for the changelog generation.
@@ -102,17 +102,17 @@ please:
   guide](https://github.com/lowrisc/ibex/blob/master/CONTRIBUTING.md).
 * If asked to modify your changes, do fixup your commits and rebase your branch to maintain a
   clean history.
-* If the PR gets accepted and merged into the the **dev** branch, an action is triggered automatically to check whether the changes are logically equivalent to the frozen RTL on a given set of parameters. If the changes are logically equivalent, the **dev** branch is automatically merged into the **master** branch. Otherwise, we need to investigate manually. If a bug is found, thus the changes are not logically equivalent, we follow the procedure documented [here](https://docs.openhwgroup.org/projects/cv32e40p-user-manual/core_versions.html). 
+* If the PR gets accepted and merged into the the **dev** branch, an action is triggered automatically to check whether the changes are logically equivalent to the frozen RTL on a given set of parameters. If the changes are logically equivalent, the **dev** branch is automatically merged into the **master** branch. Otherwise, we need to investigate manually. If a bug is found, thus the changes are not logically equivalent, we follow the procedure documented [here](https://docs.openhwgroup.org/projects/cv32e40p-user-manual/core_versions.html).
 
 For more details on how this is implemented, have a look at this [page](https://github.com/openhwgroup/cv32e40p/blob/master/.github/workflows/aws_cv32e40p.md).
 
 When contributing SystemVerilog source code, please try to be consistent and adhere to [the lowRISC Verilog
 coding style guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md).
 
-To get started, please check out the ["Good First Issue"
+To get started, please check out the [&#34;Good First Issue&#34;
  list](https://github.com/openhwgroup/cv32e40p/issues?q=is%3Aissue+is%3Aopen+-label%3Astatus%3Aresolved+label%3A%22good+first+issue%22).
 
-The RTL code has been formatted with ["Verible"](https://github.com/google/verible) v0.0-1149-g7eae750.
+The RTL code has been formatted with [&#34;Verible&#34;](https://github.com/google/verible) v0.0-1149-g7eae750.
 Run `./util/format-verible` to format all the files.
 
 ## Issues and Troubleshooting
