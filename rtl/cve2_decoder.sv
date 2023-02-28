@@ -30,8 +30,6 @@ module cve2_decoder #(
   output logic                 ecall_insn_o,          // syscall instr encountered
   output logic                 wfi_insn_o,            // wait for interrupt instr encountered
   output logic                 jump_set_o,            // jump taken set signal
-  input  logic                 branch_taken_i,        // registered branch decision
-  output logic                 icache_inval_o,
 
   // from IF-ID pipeline register
   input  logic                 instr_first_cycle_i,   // instruction read is in its first cycle
@@ -203,7 +201,6 @@ module cve2_decoder #(
     jump_in_dec_o         = 1'b0;
     jump_set_o            = 1'b0;
     branch_in_dec_o       = 1'b0;
-    icache_inval_o        = 1'b0;
 
     multdiv_operator_o    = MD_OP_MULL;
     multdiv_signed_mode_o = 2'b00;
@@ -569,14 +566,12 @@ module cve2_decoder #(
             // FENCE.I is implemented as a jump to the next PC, this gives the required flushing
             // behaviour (iside prefetch buffer flushed and response to any outstanding iside
             // requests will be ignored).
-            // If present, the ICache will also be flushed.
             jump_in_dec_o   = 1'b1;
 
             rf_we           = 1'b0;
 
             if (instr_first_cycle_i) begin
               jump_set_o       = 1'b1;
-              icache_inval_o   = 1'b1;
             end
           end
           default: begin
@@ -743,7 +738,7 @@ module cve2_decoder #(
           alu_op_a_mux_sel_o  = OP_A_CURRPC;
           alu_op_b_mux_sel_o  = OP_B_IMM;
           // Not-taken branch will jump to next instruction (used in secure mode)
-          imm_b_mux_sel_o     = branch_taken_i ? IMM_B_B : IMM_B_INCR_PC;
+          imm_b_mux_sel_o     = IMM_B_B;
           alu_operator_o      = ALU_ADD;
         end
       end

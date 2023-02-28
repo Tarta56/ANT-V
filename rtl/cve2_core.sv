@@ -22,20 +22,9 @@ module cve2_core import cve2_pkg::*; #(
   parameter rv32m_e      RV32M             = RV32MFast,
   parameter rv32b_e      RV32B             = RV32BNone,
   parameter bit          WritebackStage    = 1'b0,
-  parameter bit          ICache            = 1'b0,
-  parameter bit          ICacheECC         = 1'b0,
-  parameter int unsigned BusSizeECC        = BUS_SIZE,
-  parameter int unsigned TagSizeECC        = IC_TAG_SIZE,
-  parameter int unsigned LineSizeECC       = IC_LINE_SIZE,
   parameter bit          BranchPredictor   = 1'b0,
   parameter bit          DbgTriggerEn      = 1'b0,
   parameter int unsigned DbgHwBreakNum     = 1,
-  parameter bit          ResetAll          = 1'b0,
-  parameter lfsr_seed_t  RndCnstLfsrSeed   = RndCnstLfsrSeedDefault,
-  parameter lfsr_perm_t  RndCnstLfsrPerm   = RndCnstLfsrPermDefault,
-  parameter bit          SecureIbex        = 1'b0,
-  parameter bit          DummyInstructions = 1'b0,
-  parameter bit          RegFileECC        = 1'b0,
   parameter int unsigned DmHaltAddr        = 32'h1A110800,
   parameter int unsigned DmExceptionAddr   = 32'h1A110808
 ) (
@@ -66,7 +55,6 @@ module cve2_core import cve2_pkg::*; #(
   input  logic                         data_err_i,
 
   // Register file interface
-  output logic                         dummy_instr_id_o,
   output logic [4:0]                   rf_raddr_a_o,
   output logic [4:0]                   rf_raddr_b_o,
   output logic [4:0]                   rf_waddr_wb_o,
@@ -74,19 +62,6 @@ module cve2_core import cve2_pkg::*; #(
   output logic [31:0]  rf_wdata_wb_ecc_o,
   input  logic [31:0]  rf_rdata_a_ecc_i,
   input  logic [31:0]  rf_rdata_b_ecc_i,
-
-  // RAMs interface
-  output logic [IC_NUM_WAYS-1:0]       ic_tag_req_o,
-  output logic                         ic_tag_write_o,
-  output logic [IC_INDEX_W-1:0]        ic_tag_addr_o,
-  output logic [TagSizeECC-1:0]        ic_tag_wdata_o,
-  input  logic [TagSizeECC-1:0]        ic_tag_rdata_i [IC_NUM_WAYS],
-  output logic [IC_NUM_WAYS-1:0]       ic_data_req_o,
-  output logic                         ic_data_write_o,
-  output logic [IC_INDEX_W-1:0]        ic_data_addr_o,
-  output logic [LineSizeECC-1:0]       ic_data_wdata_o,
-  input  logic [LineSizeECC-1:0]       ic_data_rdata_i [IC_NUM_WAYS],
-  input  logic                         ic_scr_key_valid_i,
 
   // Interrupt inputs
   input  logic                         irq_software_i,
@@ -101,7 +76,6 @@ module cve2_core import cve2_pkg::*; #(
   output crash_dump_t                  crash_dump_o,
   // SEC_CM: EXCEPTION.CTRL_FLOW.LOCAL_ESC
   // SEC_CM: EXCEPTION.CTRL_FLOW.GLOBAL_ESC
-  output logic                         double_fault_seen_o,
 
   // RISC-V Formal Interface
   // Does not comply with the coding standards of _i/_o suffixes, but follows
@@ -138,21 +112,15 @@ module cve2_core import cve2_pkg::*; #(
 
   // CPU Control Signals
   // SEC_CM: FETCH.CTRL.LC_GATED
-  input  fetch_enable_t                fetch_enable_i,
   output logic                         alert_minor_o,
   output logic                         alert_major_o,
-  output logic                         icache_inval_o,
   output logic                         core_busy_o
 );
 
   localparam int unsigned PMP_NUM_CHAN      = 3;
   // SEC_CM: CORE.DATA_REG_SW.SCA
-  localparam bit          DataIndTiming     = SecureIbex;
-  localparam bit          PCIncrCheck       = SecureIbex;
-  localparam bit          ShadowCSR         = 1'b0;
 
   // IF/ID signals
-  logic        dummy_instr_id;
   logic        instr_valid_id;
   logic        instr_new_id;
   logic [31:0] instr_rdata_id;                 // Instruction sampled inside IF stage
@@ -171,17 +139,6 @@ module cve2_core import cve2_pkg::*; #(
   logic [33:0] imd_val_d_ex[2];                // Intermediate register for multicycle Ops
   logic [33:0] imd_val_q_ex[2];                // Intermediate register for multicycle Ops
   logic [1:0]  imd_val_we_ex;
-
-  logic        data_ind_timing;
-  logic        dummy_instr_en;
-  logic [2:0]  dummy_instr_mask;
-  logic        dummy_instr_seed_en;
-  logic [31:0] dummy_instr_seed;
-  logic        icache_enable;
-  logic        icache_inval;
-  logic        icache_ecc_error;
-  logic        pc_mismatch_alert;
-  logic        csr_shadow_err;
 
   logic        instr_first_cycle_id;
   logic        instr_valid_clear;
@@ -360,16 +317,6 @@ module cve2_core import cve2_pkg::*; #(
   cve2_if_stage #(
     .DmHaltAddr       (DmHaltAddr),
     .DmExceptionAddr  (DmExceptionAddr),
-    .DummyInstructions(DummyInstructions),
-    .ICache           (ICache),
-    .ICacheECC        (ICacheECC),
-    .BusSizeECC       (BusSizeECC),
-    .TagSizeECC       (TagSizeECC),
-    .LineSizeECC      (LineSizeECC),
-    .PCIncrCheck      (PCIncrCheck),
-    .ResetAll          ( ResetAll          ),
-    .RndCnstLfsrSeed   ( RndCnstLfsrSeed   ),
-    .RndCnstLfsrPerm   ( RndCnstLfsrPerm   ),
     .BranchPredictor  (BranchPredictor)
   ) if_stage_i (
     .clk_i (clk_i),
@@ -386,18 +333,6 @@ module cve2_core import cve2_pkg::*; #(
     .instr_rdata_i  (instr_rdata_i),
     .instr_err_i    (instr_err_i),
 
-    .ic_tag_req_o      (ic_tag_req_o),
-    .ic_tag_write_o    (ic_tag_write_o),
-    .ic_tag_addr_o     (ic_tag_addr_o),
-    .ic_tag_wdata_o    (ic_tag_wdata_o),
-    .ic_tag_rdata_i    (ic_tag_rdata_i),
-    .ic_data_req_o     (ic_data_req_o),
-    .ic_data_write_o   (ic_data_write_o),
-    .ic_data_addr_o    (ic_data_addr_o),
-    .ic_data_wdata_o   (ic_data_wdata_o),
-    .ic_data_rdata_i   (ic_data_rdata_i),
-    .ic_scr_key_valid_i(ic_scr_key_valid_i),
-
     // outputs to ID stage
     .instr_valid_id_o        (instr_valid_id),
     .instr_new_id_o          (instr_new_id),
@@ -409,7 +344,6 @@ module cve2_core import cve2_pkg::*; #(
     .instr_fetch_err_o       (instr_fetch_err),
     .instr_fetch_err_plus2_o (instr_fetch_err_plus2),
     .illegal_c_insn_id_o     (illegal_c_insn_id),
-    .dummy_instr_id_o        (dummy_instr_id),
     .pc_if_o                 (pc_if),
     .pc_id_o                 (pc_id),
     .pmp_err_if_i            (pmp_req_err[PMP_I]),
@@ -422,13 +356,6 @@ module cve2_core import cve2_pkg::*; #(
     .nt_branch_mispredict_i(nt_branch_mispredict),
     .exc_pc_mux_i          (exc_pc_mux_id),
     .exc_cause             (exc_cause),
-    .dummy_instr_en_i      (dummy_instr_en),
-    .dummy_instr_mask_i    (dummy_instr_mask),
-    .dummy_instr_seed_en_i (dummy_instr_seed_en),
-    .dummy_instr_seed_i    (dummy_instr_seed),
-    .icache_enable_i       (icache_enable),
-    .icache_inval_i        (icache_inval),
-    .icache_ecc_error_o    (icache_ecc_error),
 
     // branch targets
     .branch_target_ex_i(branch_target_ex),
@@ -443,7 +370,6 @@ module cve2_core import cve2_pkg::*; #(
     // pipeline stalls
     .id_in_ready_i(id_in_ready),
 
-    .pc_mismatch_alert_o(pc_mismatch_alert),
     .if_busy_o          (if_busy)
   );
 
@@ -451,25 +377,9 @@ module cve2_core import cve2_pkg::*; #(
   // available
   assign perf_iside_wait = id_in_ready & ~instr_valid_id;
 
-  // Multi-bit fetch enable used when SecureIbex == 1. When SecureIbex == 0 only use the bottom-bit
-  // of fetch_enable_i. Ensure the multi-bit encoding has the bottom bit set for on and unset for
-  // off so FetchEnableOn/FetchEnableOff can be used without needing to know the value of
-  // SecureIbex.
-  `ASSERT_INIT(FetchEnableSecureOnBottomBitSet,    FetchEnableOn[0] == 1'b1)
-  `ASSERT_INIT(FetchEnableSecureOffBottomBitClear, FetchEnableOff[0] == 1'b0)
-
-  // fetch_enable_i can be used to stop the core fetching new instructions
-  if (SecureIbex) begin : g_instr_req_gated_secure
-    // For secure Ibex fetch_enable_i must be a specific multi-bit pattern to enable instruction
-    // fetch
-    // SEC_CM: FETCH.CTRL.LC_GATED
-    assign instr_req_gated = instr_req_int & (fetch_enable_i == FetchEnableOn);
-  end else begin : g_instr_req_gated_non_secure
+  begin : g_instr_req_gated_non_secure
     // For non secure Ibex only the bottom bit of fetch enable is considered
-    logic unused_fetch_enable;
-    assign unused_fetch_enable = ^fetch_enable_i[$bits(fetch_enable_t)-1:1];
-
-    assign instr_req_gated = instr_req_int & fetch_enable_i[0];
+    assign instr_req_gated = instr_req_int;
   end
 
   //////////////
@@ -480,7 +390,6 @@ module cve2_core import cve2_pkg::*; #(
     .RV32E          (RV32E),
     .RV32M          (RV32M),
     .RV32B          (RV32B),
-    .DataIndTiming  (DataIndTiming),
     .WritebackStage (WritebackStage),
     .BranchPredictor(BranchPredictor)
   ) id_stage_i (
@@ -513,7 +422,6 @@ module cve2_core import cve2_pkg::*; #(
     .nt_branch_addr_o      (nt_branch_addr),
     .exc_pc_mux_o          (exc_pc_mux_id),
     .exc_cause_o           (exc_cause),
-    .icache_inval_o        (icache_inval),
 
     .instr_fetch_err_i      (instr_fetch_err),
     .instr_fetch_err_plus2_i(instr_fetch_err_plus2),
@@ -557,7 +465,6 @@ module cve2_core import cve2_pkg::*; #(
     .priv_mode_i          (priv_mode_id),
     .csr_mstatus_tw_i     (csr_mstatus_tw),
     .illegal_csr_insn_i   (illegal_csr_insn_id),
-    .data_ind_timing_i    (data_ind_timing),
 
     // LSU
     .lsu_req_o     (lsu_req),  // to load store unit
@@ -627,7 +534,6 @@ module cve2_core import cve2_pkg::*; #(
     .instr_id_done_o  (instr_id_done)
   );
 
-  assign icache_inval_o = icache_inval;
   // for RVFI only
   assign unused_illegal_insn_id = illegal_insn_id;
 
@@ -654,7 +560,6 @@ module cve2_core import cve2_pkg::*; #(
     .multdiv_operand_a_i  (multdiv_operand_a_ex),
     .multdiv_operand_b_i  (multdiv_operand_b_ex),
     .multdiv_ready_id_i   (multdiv_ready_id),
-    .data_ind_timing_i    (data_ind_timing),
 
     // Intermediate value register
     .imd_val_we_o(imd_val_we_ex),
@@ -725,7 +630,6 @@ module cve2_core import cve2_pkg::*; #(
   );
 
   cve2_wb_stage #(
-    .ResetAll       ( ResetAll       ),
     .WritebackStage(WritebackStage)
   ) wb_stage_i (
     .clk_i                   (clk_i),
@@ -769,50 +673,12 @@ module cve2_core import cve2_pkg::*; #(
   // Register file interface //
   /////////////////////////////
 
-  assign dummy_instr_id_o = dummy_instr_id;
   assign rf_raddr_a_o     = rf_raddr_a;
   assign rf_waddr_wb_o    = rf_waddr_wb;
   assign rf_we_wb_o       = rf_we_wb;
   assign rf_raddr_b_o     = rf_raddr_b;
 
-  if (RegFileECC) begin : gen_regfile_ecc
-
-    // SEC_CM: DATA_REG_SW.INTEGRITY
-    logic [1:0] rf_ecc_err_a, rf_ecc_err_b;
-    logic       rf_ecc_err_a_id, rf_ecc_err_b_id;
-
-    // ECC checkbit generation for regiter file wdata
-    prim_secded_inv_39_32_enc regfile_ecc_enc (
-      .data_i(rf_wdata_wb),
-      .data_o(rf_wdata_wb_ecc_o)
-    );
-
-    // ECC checking on register file rdata
-    prim_secded_inv_39_32_dec regfile_ecc_dec_a (
-      .data_i    (rf_rdata_a_ecc_i),
-      .data_o    (),
-      .syndrome_o(),
-      .err_o     (rf_ecc_err_a)
-    );
-    prim_secded_inv_39_32_dec regfile_ecc_dec_b (
-      .data_i    (rf_rdata_b_ecc_i),
-      .data_o    (),
-      .syndrome_o(),
-      .err_o     (rf_ecc_err_b)
-    );
-
-    // Assign read outputs - no error correction, just trigger an alert
-    assign rf_rdata_a = rf_rdata_a_ecc_i[31:0];
-    assign rf_rdata_b = rf_rdata_b_ecc_i[31:0];
-
-    // Calculate errors - qualify with WB forwarding to avoid xprop into the alert signal
-    assign rf_ecc_err_a_id = |rf_ecc_err_a & rf_ren_a & ~rf_rd_a_wb_match;
-    assign rf_ecc_err_b_id = |rf_ecc_err_b & rf_ren_b & ~rf_rd_b_wb_match;
-
-    // Combined error
-    assign rf_ecc_err_comb = instr_valid_id & (rf_ecc_err_a_id | rf_ecc_err_b_id);
-
-  end else begin : gen_no_regfile_ecc
+  begin : gen_no_regfile_ecc
     logic unused_rf_ren_a, unused_rf_ren_b;
     logic unused_rf_rd_a_wb_match, unused_rf_rd_b_wb_match;
 
@@ -840,10 +706,10 @@ module cve2_core import cve2_pkg::*; #(
   ///////////////////
 
   // Minor alert - core is in a recoverable state
-  assign alert_minor_o = icache_ecc_error;
+  assign alert_minor_o = 1'b0;
 
   // Major alert - core is unrecoverable
-  assign alert_major_o = rf_ecc_err_comb | pc_mismatch_alert | csr_shadow_err;
+  assign alert_major_o = rf_ecc_err_comb;
 
   // Explict INC_ASSERT block to avoid unused signal lint warnings were asserts are not included
   `ifdef INC_ASSERT
@@ -901,10 +767,6 @@ module cve2_core import cve2_pkg::*; #(
   cve2_cs_registers #(
     .DbgTriggerEn     (DbgTriggerEn),
     .DbgHwBreakNum    (DbgHwBreakNum),
-    .DataIndTiming    (DataIndTiming),
-    .DummyInstructions(DummyInstructions),
-    .ShadowCSR        (ShadowCSR),
-    .ICache           (ICache),
     .MHPMCounterNum   (MHPMCounterNum),
     .MHPMCounterWidth (MHPMCounterWidth),
     .PMPEnable        (PMPEnable),
@@ -966,14 +828,6 @@ module cve2_core import cve2_pkg::*; #(
     .pc_id_i(pc_id),
     .pc_wb_i(pc_wb),
 
-    .data_ind_timing_o    (data_ind_timing),
-    .dummy_instr_en_o     (dummy_instr_en),
-    .dummy_instr_mask_o   (dummy_instr_mask),
-    .dummy_instr_seed_en_o(dummy_instr_seed_en),
-    .dummy_instr_seed_o   (dummy_instr_seed),
-    .icache_enable_o      (icache_enable),
-    .csr_shadow_err_o     (csr_shadow_err),
-
     .csr_save_if_i     (csr_save_if),
     .csr_save_id_i     (csr_save_id),
     .csr_save_wb_i     (csr_save_wb),
@@ -983,8 +837,6 @@ module cve2_core import cve2_pkg::*; #(
     .csr_mcause_i      (exc_cause),
     .csr_mtval_i       (csr_mtval),
     .illegal_csr_insn_o(illegal_csr_insn_id),
-
-    .double_fault_seen_o,
 
     // performance counter related signals
     .instr_ret_i                (perf_instr_ret_wb),
@@ -1209,7 +1061,7 @@ module cve2_core import cve2_pkg::*; #(
     // awaiting instruction retirement and RF Write data/Mem read data whilst instruction is in WB
     // So first stage becomes valid when instruction leaves ID/EX stage and remains valid until
     // instruction leaves WB
-    assign rvfi_stage_valid_d[0] = (rvfi_id_done & ~dummy_instr_id) |
+    assign rvfi_stage_valid_d[0] = rvfi_id_done |
                                    (rvfi_stage_valid[0] & ~rvfi_wb_done);
     // Second stage is output stage so simple valid cycle after instruction leaves WB (and so has
     // retired)
@@ -1237,7 +1089,7 @@ module cve2_core import cve2_pkg::*; #(
   end else begin : gen_rvfi_no_wb_stage
     // Without writeback stage first RVFI stage is output stage so simply valid the cycle after
     // instruction leaves ID/EX (and so has retired)
-    assign rvfi_stage_valid_d[0] = rvfi_id_done & ~dummy_instr_id;
+    assign rvfi_stage_valid_d[0] = rvfi_id_done;
     // Without writeback stage signal new instr_new_wb when instruction enters ID/EX to correctly
     // setup register write signals
     assign rvfi_instr_new_wb = instr_new_id;
@@ -1246,7 +1098,7 @@ module cve2_core import cve2_pkg::*; #(
     assign rvfi_wb_done = instr_done_wb;
   end
 
-  assign rvfi_stage_order_d = dummy_instr_id ? rvfi_stage_order[0] : rvfi_stage_order[0] + 64'd1;
+  assign rvfi_stage_order_d = rvfi_stage_order[0] + 64'd1;
 
   // For interrupts and debug Ibex will take the relevant trap as soon as whatever instruction in ID
   // finishes or immediately if the ID stage is empty. The rvfi_ext interface provides the DV
@@ -1572,8 +1424,5 @@ module cve2_core import cve2_pkg::*; #(
   assign unused_instr_new_id = instr_new_id;
   assign unused_instr_done_wb = instr_done_wb;
 `endif
-
-  // Certain parameter combinations are not supported
-  `ASSERT_INIT(IllegalParamSecure, !(SecureIbex && (RV32M == RV32MNone)))
 
 endmodule

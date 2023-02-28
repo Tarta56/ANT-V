@@ -15,10 +15,6 @@
 module cve2_cs_registers #(
   parameter bit               DbgTriggerEn      = 0,
   parameter int unsigned      DbgHwBreakNum     = 1,
-  parameter bit               DataIndTiming     = 1'b0,
-  parameter bit               DummyInstructions = 1'b0,
-  parameter bit               ShadowCSR         = 1'b0,
-  parameter bit               ICache            = 1'b0,
   parameter int unsigned      MHPMCounterNum    = 10,
   parameter int unsigned      MHPMCounterWidth  = 40,
   parameter bit               PMPEnable         = 0,
@@ -83,15 +79,6 @@ module cve2_cs_registers #(
   input  logic [31:0]          pc_id_i,
   input  logic [31:0]          pc_wb_i,
 
-  // CPU control bits
-  output logic                 data_ind_timing_o,
-  output logic                 dummy_instr_en_o,
-  output logic [2:0]           dummy_instr_mask_o,
-  output logic                 dummy_instr_seed_en_o,
-  output logic [31:0]          dummy_instr_seed_o,
-  output logic                 icache_enable_o,
-  output logic                 csr_shadow_err_o,
-
   // Exception save/restore
   input  logic                 csr_save_if_i,
   input  logic                 csr_save_id_i,
@@ -104,7 +91,6 @@ module cve2_cs_registers #(
   output logic                 illegal_csr_insn_o,     // access to non-existent CSR,
                                                         // with wrong priviledge level, or
                                                         // missing write permissions
-  output logic                 double_fault_seen_o,
   // Performance Counters
   input  logic                 instr_ret_i,                 // instr retired in ID/EX stage
   input  logic                 instr_ret_compressed_i,      // compressed instr retired
@@ -174,16 +160,6 @@ module cve2_cs_registers #(
       priv_lvl_e    prv;
   } dcsr_t;
 
-  // CPU control register fields
-  typedef struct packed {
-    logic        double_fault_seen;
-    logic        sync_exc_seen;
-    logic [2:0]  dummy_instr_mask;
-    logic        dummy_instr_en;
-    logic        data_ind_timing;
-    logic        icache_enable;
-  } cpu_ctrl_t;
-
   // Interrupt and exception control signals
   logic [31:0] exception_pc;
 
@@ -252,11 +228,6 @@ module cve2_cs_registers #(
   logic [31:0] tselect_rdata;
   logic [31:0] tmatch_control_rdata;
   logic [31:0] tmatch_value_rdata;
-
-  // CPU control bits
-  cpu_ctrl_t   cpuctrl_q, cpuctrl_d, cpuctrl_wdata_raw, cpuctrl_wdata;
-  logic        cpuctrl_we;
-  logic        cpuctrl_err;
 
   // CSR update logic
   logic [31:0] csr_wdata_int;
@@ -486,11 +457,6 @@ module cve2_cs_registers #(
         illegal_csr   = ~DbgTriggerEn;
       end
 
-      // Custom CSR for controlling CPU features
-      CSR_CPUCTRL: begin
-        csr_rdata_int = {{32 - $bits(cpu_ctrl_t) {1'b0}}, cpuctrl_q};
-      end
-
       // Custom CSR for LFSR re-seeding (cannot be read)
       CSR_SECURESEED: begin
         csr_rdata_int = '0;
@@ -538,11 +504,6 @@ module cve2_cs_registers #(
     mcountinhibit_we = 1'b0;
     mhpmcounter_we   = '0;
     mhpmcounterh_we  = '0;
-
-    cpuctrl_we       = 1'b0;
-    cpuctrl_d        = cpuctrl_q;
-
-    double_fault_seen_o = 1'b0;
 
     if (csr_we_int) begin
       unique case (csr_addr_i)
@@ -641,11 +602,6 @@ module cve2_cs_registers #(
           mhpmcounterh_we[mhpmcounter_idx] = 1'b1;
         end
 
-        CSR_CPUCTRL: begin
-          cpuctrl_d  = cpuctrl_wdata;
-          cpuctrl_we = 1'b1;
-        end
-
         default:;
       endcase
     end
@@ -695,17 +651,6 @@ module cve2_cs_registers #(
           // save previous status for recoverable NMI
           mstack_en      = 1'b1;
 
-          if (!mcause_d[5]) begin
-            // SEC_CM: EXCEPTION.CTRL_FLOW.LOCAL_ESC
-            // SEC_CM: EXCEPTION.CTRL_FLOW.GLOBAL_ESC
-            cpuctrl_we = 1'b1;
-
-            cpuctrl_d.sync_exc_seen = 1'b1;
-            if (cpuctrl_q.sync_exc_seen) begin
-              double_fault_seen_o         = 1'b1;
-              cpuctrl_d.double_fault_seen = 1'b1;
-            end
-          end
         end
       end // csr_save_cause_i
 
@@ -720,8 +665,6 @@ module cve2_cs_registers #(
 
         // SEC_CM: EXCEPTION.CTRL_FLOW.LOCAL_ESC
         // SEC_CM: EXCEPTION.CTRL_FLOW.GLOBAL_ESC
-        cpuctrl_we              = 1'b1;
-        cpuctrl_d.sync_exc_seen = 1'b0;
 
         if (nmi_mode_i) begin
           // when returning from an NMI restore state from mstack CSR
@@ -803,7 +746,6 @@ module cve2_cs_registers #(
                                           tw:   1'b0};
   cve2_csr #(
     .Width     ($bits(status_t)),
-    .ShadowCopy(ShadowCSR),
     .ResetValue({MSTATUS_RST_VAL})
   ) u_mstatus_csr (
     .clk_i     (clk_i),
@@ -891,7 +833,6 @@ module cve2_cs_registers #(
   // MTVEC
   cve2_csr #(
     .Width     (32),
-    .ShadowCopy(ShadowCSR),
     .ResetValue(32'd1)
   ) u_mtvec_csr (
     .clk_i     (clk_i),
@@ -1104,7 +1045,6 @@ module cve2_cs_registers #(
 
       cve2_csr #(
         .Width     ($bits(pmp_cfg_t)),
-        .ShadowCopy(ShadowCSR),
         .ResetValue(pmp_cfg_rst[i])
       ) u_pmp_cfg_csr (
         .clk_i     (clk_i),
@@ -1133,7 +1073,6 @@ module cve2_cs_registers #(
 
       cve2_csr #(
         .Width     (PMPAddrWidth),
-        .ShadowCopy(ShadowCSR),
         .ResetValue(pmp_addr_rst[i][33-:PMPAddrWidth])
       ) u_pmp_addr_csr (
         .clk_i     (clk_i),
@@ -1166,7 +1105,6 @@ module cve2_cs_registers #(
 
     cve2_csr #(
       .Width     ($bits(pmp_mseccfg_t)),
-      .ShadowCopy(ShadowCSR),
       .ResetValue(pmp_mseccfg_rst)
     ) u_pmp_mseccfg (
       .clk_i     (clk_i),
@@ -1501,88 +1439,12 @@ module cve2_cs_registers #(
   // CPU control register //
   //////////////////////////
 
-  // Cast register write data
-  assign cpuctrl_wdata_raw = cpu_ctrl_t'(csr_wdata_int[$bits(cpu_ctrl_t)-1:0]);
-
-  // Generate fixed time execution bit
-  if (DataIndTiming) begin : gen_dit
-    // SEC_CM: CORE.DATA_REG_SW.SCA
-    assign cpuctrl_wdata.data_ind_timing = cpuctrl_wdata_raw.data_ind_timing;
-
-  end else begin : gen_no_dit
-    // tieoff for the unused bit
-    logic unused_dit;
-    assign unused_dit = cpuctrl_wdata_raw.data_ind_timing;
-
-    // field will always read as zero if not configured
-    assign cpuctrl_wdata.data_ind_timing = 1'b0;
-  end
-
-  assign data_ind_timing_o = cpuctrl_q.data_ind_timing;
-
-  // Generate dummy instruction signals
-  if (DummyInstructions) begin : gen_dummy
-    // SEC_CM: CTRL_FLOW.UNPREDICTABLE
-    assign cpuctrl_wdata.dummy_instr_en   = cpuctrl_wdata_raw.dummy_instr_en;
-    assign cpuctrl_wdata.dummy_instr_mask = cpuctrl_wdata_raw.dummy_instr_mask;
-
-    // Signal a write to the seed register
-    assign dummy_instr_seed_en_o = csr_we_int && (csr_addr == CSR_SECURESEED);
-    assign dummy_instr_seed_o    = csr_wdata_int;
-
-  end else begin : gen_no_dummy
-    // tieoff for the unused bit
-    logic       unused_dummy_en;
-    logic [2:0] unused_dummy_mask;
-    assign unused_dummy_en   = cpuctrl_wdata_raw.dummy_instr_en;
-    assign unused_dummy_mask = cpuctrl_wdata_raw.dummy_instr_mask;
-
-    // field will always read as zero if not configured
-    assign cpuctrl_wdata.dummy_instr_en   = 1'b0;
-    assign cpuctrl_wdata.dummy_instr_mask = 3'b000;
-    assign dummy_instr_seed_en_o      = 1'b0;
-    assign dummy_instr_seed_o         = '0;
-  end
-
-  assign dummy_instr_en_o   = cpuctrl_q.dummy_instr_en;
-  assign dummy_instr_mask_o = cpuctrl_q.dummy_instr_mask;
-
-  // Generate icache enable bit
-  if (ICache) begin : gen_icache_enable
-    assign cpuctrl_wdata.icache_enable = cpuctrl_wdata_raw.icache_enable;
-  end else begin : gen_no_icache
-    // tieoff for the unused icen bit
-    logic unused_icen;
-    assign unused_icen = cpuctrl_wdata_raw.icache_enable;
-
-    // icen field will always read as zero if ICache not configured
-    assign cpuctrl_wdata.icache_enable = 1'b0;
-  end
-
-  assign cpuctrl_wdata.double_fault_seen = cpuctrl_wdata_raw.double_fault_seen;
-  assign cpuctrl_wdata.sync_exc_seen     = cpuctrl_wdata_raw.sync_exc_seen;
-
-  assign icache_enable_o = cpuctrl_q.icache_enable;
-
-  cve2_csr #(
-    .Width     ($bits(cpu_ctrl_t)),
-    .ShadowCopy(ShadowCSR),
-    .ResetValue('0)
-  ) u_cpuctrl_csr (
-    .clk_i     (clk_i),
-    .rst_ni    (rst_ni),
-    .wr_data_i ({cpuctrl_d}),
-    .wr_en_i   (cpuctrl_we),
-    .rd_data_o (cpuctrl_q),
-    .rd_error_o(cpuctrl_err)
-  );
-
-  assign csr_shadow_err_o = mstatus_err | mtvec_err | pmp_csr_err | cpuctrl_err;
+  // Removed
 
   ////////////////
   // Assertions //
   ////////////////
 
-  `ASSERT(IbexCsrOpEnRequiresAccess, csr_op_en_i |-> csr_access_i)
+  `ASSERT(CVE2CsrOpEnRequiresAccess, csr_op_en_i |-> csr_access_i)
 
 endmodule

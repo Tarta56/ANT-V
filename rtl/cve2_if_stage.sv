@@ -15,16 +15,6 @@
 module cve2_if_stage import cve2_pkg::*; #(
   parameter int unsigned DmHaltAddr        = 32'h1A110800,
   parameter int unsigned DmExceptionAddr   = 32'h1A110808,
-  parameter bit          DummyInstructions = 1'b0,
-  parameter bit          ICache            = 1'b0,
-  parameter bit          ICacheECC         = 1'b0,
-  parameter int unsigned BusSizeECC        = BUS_SIZE,
-  parameter int unsigned TagSizeECC        = IC_TAG_SIZE,
-  parameter int unsigned LineSizeECC       = IC_LINE_SIZE,
-  parameter bit          PCIncrCheck       = 1'b0,
-  parameter bit          ResetAll          = 1'b0,
-  parameter lfsr_seed_t  RndCnstLfsrSeed   = RndCnstLfsrSeedDefault,
-  parameter lfsr_perm_t  RndCnstLfsrPerm   = RndCnstLfsrPermDefault,
   parameter bit          BranchPredictor   = 1'b0
 ) (
   input  logic                         clk_i,
@@ -40,19 +30,6 @@ module cve2_if_stage import cve2_pkg::*; #(
   input  logic                        instr_rvalid_i,
   input  logic [31:0]                 instr_rdata_i,
   input  logic                        instr_err_i,
-
-  // ICache RAM IO
-  output logic [IC_NUM_WAYS-1:0]      ic_tag_req_o,
-  output logic                        ic_tag_write_o,
-  output logic [IC_INDEX_W-1:0]       ic_tag_addr_o,
-  output logic [TagSizeECC-1:0]       ic_tag_wdata_o,
-  input  logic [TagSizeECC-1:0]       ic_tag_rdata_i [IC_NUM_WAYS],
-  output logic [IC_NUM_WAYS-1:0]      ic_data_req_o,
-  output logic                        ic_data_write_o,
-  output logic [IC_INDEX_W-1:0]       ic_data_addr_o,
-  output logic [LineSizeECC-1:0]      ic_data_wdata_o,
-  input  logic [LineSizeECC-1:0]      ic_data_rdata_i [IC_NUM_WAYS],
-  input  logic                        ic_scr_key_valid_i,
 
   // output of ID stage
   output logic                        instr_valid_id_o,         // instr in IF-ID is valid
@@ -71,7 +48,6 @@ module cve2_if_stage import cve2_pkg::*; #(
   output logic                        instr_fetch_err_plus2_o,  // bus error misaligned
   output logic                        illegal_c_insn_id_o,      // compressed decoder thinks this
                                                                 // is an invalid instr
-  output logic                        dummy_instr_id_o,         // Instruction is a dummy
   output logic [31:0]                 pc_if_o,
   output logic [31:0]                 pc_id_o,
   input  logic                        pmp_err_if_i,
@@ -87,14 +63,6 @@ module cve2_if_stage import cve2_pkg::*; #(
   input  exc_pc_sel_e                 exc_pc_mux_i,             // selects ISR address
   input  exc_cause_e                  exc_cause,                // selects ISR address for
                                                                 // vectorized interrupt lines
-  input  logic                        dummy_instr_en_i,
-  input  logic [2:0]                  dummy_instr_mask_i,
-  input  logic                        dummy_instr_seed_en_i,
-  input  logic [31:0]                 dummy_instr_seed_i,
-  input  logic                        icache_enable_i,
-  input  logic                        icache_inval_i,
-  output logic                        icache_ecc_error_o,
-
   // jump and branch target
   input  logic [31:0]                 branch_target_ex_i,       // branch/jump target address
 
@@ -110,7 +78,6 @@ module cve2_if_stage import cve2_pkg::*; #(
   input  logic                        id_in_ready_i,            // ID stage is ready for new instr
 
   // misc signals
-  output logic                        pc_mismatch_alert_o,
   output logic                        if_busy_o                 // IF stage is busy fetching instr
 );
 
@@ -148,13 +115,6 @@ module cve2_if_stage import cve2_pkg::*; #(
   logic              unused_irq_bit;
 
   logic              if_id_pipe_reg_we; // IF-ID pipeline reg write enable
-
-  // Dummy instruction signals
-  logic              stall_dummy_instr;
-  logic [31:0]       instr_out;
-  logic              instr_is_compressed_out;
-  logic              illegal_c_instr_out;
-  logic              instr_err_out;
 
   logic              predict_branch_taken;
   logic       [31:0] predict_branch_pc;
@@ -205,60 +165,9 @@ module cve2_if_stage import cve2_pkg::*; #(
   // tell CS register file to initialize mtvec on boot
   assign csr_mtvec_init_o = (pc_mux_i == PC_BOOT) & pc_set_i;
 
-  if (ICache) begin : gen_icache
-    // Full I-Cache option
-    cve2_icache #(
-      .ICacheECC       (ICacheECC),
-      .ResetAll        (ResetAll),
-      .BusSizeECC      (BusSizeECC),
-      .TagSizeECC      (TagSizeECC),
-      .LineSizeECC     (LineSizeECC)
-    ) icache_i (
-        .clk_i               ( clk_i                      ),
-        .rst_ni              ( rst_ni                     ),
-
-        .req_i               ( req_i                      ),
-
-        .branch_i            ( branch_req                 ),
-        .branch_mispredict_i ( nt_branch_mispredict_i     ),
-        .mispredict_addr_i   ( nt_branch_addr_i           ),
-        .addr_i              ( {fetch_addr_n[31:1], 1'b0} ),
-
-        .ready_i             ( fetch_ready                ),
-        .valid_o             ( fetch_valid                ),
-        .rdata_o             ( fetch_rdata                ),
-        .addr_o              ( fetch_addr                 ),
-        .err_o               ( fetch_err                  ),
-        .err_plus2_o         ( fetch_err_plus2            ),
-
-        .instr_req_o         ( instr_req_o                ),
-        .instr_addr_o        ( instr_addr_o               ),
-        .instr_gnt_i         ( instr_gnt_i                ),
-        .instr_rvalid_i      ( instr_rvalid_i             ),
-        .instr_rdata_i       ( instr_rdata_i              ),
-        .instr_err_i         ( instr_err_i                ),
-
-        .ic_tag_req_o        ( ic_tag_req_o               ),
-        .ic_tag_write_o      ( ic_tag_write_o             ),
-        .ic_tag_addr_o       ( ic_tag_addr_o              ),
-        .ic_tag_wdata_o      ( ic_tag_wdata_o             ),
-        .ic_tag_rdata_i      ( ic_tag_rdata_i             ),
-        .ic_data_req_o       ( ic_data_req_o              ),
-        .ic_data_write_o     ( ic_data_write_o            ),
-        .ic_data_addr_o      ( ic_data_addr_o             ),
-        .ic_data_wdata_o     ( ic_data_wdata_o            ),
-        .ic_data_rdata_i     ( ic_data_rdata_i            ),
-        .ic_scr_key_valid_i  ( ic_scr_key_valid_i         ),
-
-        .icache_enable_i     ( icache_enable_i            ),
-        .icache_inval_i      ( icache_inval_i             ),
-        .busy_o              ( prefetch_busy              ),
-        .ecc_error_o         ( icache_ecc_error_o         )
-    );
-  end else begin : gen_prefetch_buffer
+  begin : gen_prefetch_buffer
     // prefetch buffer, caches a fixed number of instructions
     cve2_prefetch_buffer #(
-      .ResetAll        (ResetAll)
     ) prefetch_buffer_i (
         .clk_i               ( clk_i                      ),
         .rst_ni              ( rst_ni                     ),
@@ -286,40 +195,6 @@ module cve2_if_stage import cve2_pkg::*; #(
 
         .busy_o              ( prefetch_busy              )
     );
-    // ICache tieoffs
-    logic                   unused_icen, unused_icinv, unused_scr_key_valid;
-    logic [TagSizeECC-1:0]  unused_tag_ram_input [IC_NUM_WAYS];
-    logic [LineSizeECC-1:0] unused_data_ram_input [IC_NUM_WAYS];
-    assign unused_icen           = icache_enable_i;
-    assign unused_icinv          = icache_inval_i;
-    assign unused_tag_ram_input  = ic_tag_rdata_i;
-    assign unused_data_ram_input = ic_data_rdata_i;
-    assign unused_scr_key_valid  = ic_scr_key_valid_i;
-    assign ic_tag_req_o          = 'b0;
-    assign ic_tag_write_o        = 'b0;
-    assign ic_tag_addr_o         = 'b0;
-    assign ic_tag_wdata_o        = 'b0;
-    assign ic_data_req_o         = 'b0;
-    assign ic_data_write_o       = 'b0;
-    assign ic_data_addr_o        = 'b0;
-    assign ic_data_wdata_o       = 'b0;
-    assign icache_ecc_error_o    = 'b0;
-
-`ifndef SYNTHESIS
-    // If we don't instantiate an icache and this is a simulation then we have a problem because the
-    // simulator might discard the icache module entirely, including some DPI exports that it
-    // implies. This then causes problems for linking against C++ testbench code that expected them.
-    // As a slightly ugly hack, let's define the DPI functions here (the real versions are defined
-    // in prim_util_get_scramble_params.svh)
-    export "DPI-C" function simutil_get_scramble_key;
-    export "DPI-C" function simutil_get_scramble_nonce;
-    function automatic int simutil_get_scramble_key(output bit [127:0] val);
-      return 0;
-    endfunction
-    function automatic int simutil_get_scramble_nonce(output bit [319:0] nonce);
-      return 0;
-    endfunction
-`endif
   end
 
   assign unused_fetch_addr_n0 = fetch_addr_n[0];
@@ -357,66 +232,6 @@ module cve2_if_stage import cve2_pkg::*; #(
     .illegal_instr_o(illegal_c_insn)
   );
 
-  // Dummy instruction insertion
-  if (DummyInstructions) begin : gen_dummy_instr
-    // SEC_CM: CTRL_FLOW.UNPREDICTABLE
-    logic        insert_dummy_instr;
-    logic [31:0] dummy_instr_data;
-
-    cve2_dummy_instr #(
-      .RndCnstLfsrSeed (RndCnstLfsrSeed),
-      .RndCnstLfsrPerm (RndCnstLfsrPerm)
-    ) dummy_instr_i (
-      .clk_i                (clk_i),
-      .rst_ni               (rst_ni),
-      .dummy_instr_en_i     (dummy_instr_en_i),
-      .dummy_instr_mask_i   (dummy_instr_mask_i),
-      .dummy_instr_seed_en_i(dummy_instr_seed_en_i),
-      .dummy_instr_seed_i   (dummy_instr_seed_i),
-      .fetch_valid_i        (fetch_valid),
-      .id_in_ready_i        (id_in_ready_i),
-      .insert_dummy_instr_o (insert_dummy_instr),
-      .dummy_instr_data_o   (dummy_instr_data)
-    );
-
-    // Mux between actual instructions and dummy instructions
-    assign instr_out               = insert_dummy_instr ? dummy_instr_data : instr_decompressed;
-    assign instr_is_compressed_out = insert_dummy_instr ? 1'b0 : instr_is_compressed;
-    assign illegal_c_instr_out     = insert_dummy_instr ? 1'b0 : illegal_c_insn;
-    assign instr_err_out           = insert_dummy_instr ? 1'b0 : if_instr_err;
-
-    // Stall the IF stage if we insert a dummy instruction. The dummy will execute between whatever
-    // is currently in the ID stage and whatever is valid from the prefetch buffer this cycle. The
-    // PC of the dummy instruction will match whatever is next from the prefetch buffer.
-    assign stall_dummy_instr = insert_dummy_instr;
-
-    // Register the dummy instruction indication into the ID stage
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-      if (!rst_ni) begin
-        dummy_instr_id_o <= 1'b0;
-      end else if (if_id_pipe_reg_we) begin
-        dummy_instr_id_o <= insert_dummy_instr;
-      end
-    end
-
-  end else begin : gen_no_dummy_instr
-    logic        unused_dummy_en;
-    logic [2:0]  unused_dummy_mask;
-    logic        unused_dummy_seed_en;
-    logic [31:0] unused_dummy_seed;
-
-    assign unused_dummy_en         = dummy_instr_en_i;
-    assign unused_dummy_mask       = dummy_instr_mask_i;
-    assign unused_dummy_seed_en    = dummy_instr_seed_en_i;
-    assign unused_dummy_seed       = dummy_instr_seed_i;
-    assign instr_out               = instr_decompressed;
-    assign instr_is_compressed_out = instr_is_compressed;
-    assign illegal_c_instr_out     = illegal_c_insn;
-    assign instr_err_out           = if_instr_err;
-    assign stall_dummy_instr       = 1'b0;
-    assign dummy_instr_id_o        = 1'b0;
-  end
-
   // The ID stage becomes valid as soon as any instruction is registered in the ID stage flops.
   // Note that the current instruction is squashed by the incoming pc_set_i signal.
   // Valid is held until it is explicitly cleared (due to an instruction completing or an exception)
@@ -441,7 +256,7 @@ module cve2_if_stage import cve2_pkg::*; #(
   // IF-ID pipeline registers, frozen when the ID stage is stalled
   assign if_id_pipe_reg_we = instr_new_id_d;
 
-  if (ResetAll) begin : g_instr_rdata_ra
+  begin : g_instr_rdata
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
         instr_rdata_id_o         <= '0;
@@ -453,65 +268,17 @@ module cve2_if_stage import cve2_pkg::*; #(
         illegal_c_insn_id_o      <= '0;
         pc_id_o                  <= '0;
       end else if (if_id_pipe_reg_we) begin
-        instr_rdata_id_o         <= instr_out;
+        instr_rdata_id_o         <= instr_decompressed;
         // To reduce fan-out and help timing from the instr_rdata_id flops they are replicated.
-        instr_rdata_alu_id_o     <= instr_out;
-        instr_fetch_err_o        <= instr_err_out;
+        instr_rdata_alu_id_o     <= instr_decompressed;
+        instr_fetch_err_o        <= if_instr_err;
         instr_fetch_err_plus2_o  <= if_instr_err_plus2;
         instr_rdata_c_id_o       <= if_instr_rdata[15:0];
-        instr_is_compressed_id_o <= instr_is_compressed_out;
-        illegal_c_insn_id_o      <= illegal_c_instr_out;
+        instr_is_compressed_id_o <= instr_is_compressed;
+        illegal_c_insn_id_o      <= illegal_c_insn;
         pc_id_o                  <= pc_if_o;
       end
     end
-  end else begin : g_instr_rdata_nr
-    always_ff @(posedge clk_i) begin
-      if (if_id_pipe_reg_we) begin
-        instr_rdata_id_o         <= instr_out;
-        // To reduce fan-out and help timing from the instr_rdata_id flops they are replicated.
-        instr_rdata_alu_id_o     <= instr_out;
-        instr_fetch_err_o        <= instr_err_out;
-        instr_fetch_err_plus2_o  <= if_instr_err_plus2;
-        instr_rdata_c_id_o       <= if_instr_rdata[15:0];
-        instr_is_compressed_id_o <= instr_is_compressed_out;
-        illegal_c_insn_id_o      <= illegal_c_instr_out;
-        pc_id_o                  <= pc_if_o;
-      end
-    end
-  end
-
-  // Check for expected increments of the PC when security hardening enabled
-  if (PCIncrCheck) begin : g_secure_pc
-    // SEC_CM: PC.CTRL_FLOW.CONSISTENCY
-    logic [31:0] prev_instr_addr_incr, prev_instr_addr_incr_buf;
-    logic        prev_instr_seq_q, prev_instr_seq_d;
-
-    // Do not check for sequential increase after a branch, jump, exception, interrupt or debug
-    // request, all of which will set branch_req. Also do not check after reset or for dummys.
-    assign prev_instr_seq_d = (prev_instr_seq_q | instr_new_id_d) &
-        ~branch_req & ~if_instr_err & ~stall_dummy_instr;
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-      if (!rst_ni) begin
-        prev_instr_seq_q <= 1'b0;
-      end else begin
-        prev_instr_seq_q <= prev_instr_seq_d;
-      end
-    end
-
-    assign prev_instr_addr_incr = pc_id_o + (instr_is_compressed_id_o ? 32'd2 : 32'd4);
-
-    // Buffer anticipated next PC address to ensure optimiser cannot remove the check.
-    prim_buf #(.Width(32)) u_prev_instr_addr_incr_buf (
-      .in_i (prev_instr_addr_incr),
-      .out_o(prev_instr_addr_incr_buf)
-    );
-
-    // Check that the address equals the previous address +2/+4
-    assign pc_mismatch_alert_o = prev_instr_seq_q & (pc_if_o != prev_instr_addr_incr_buf);
-
-  end else begin : g_no_secure_pc
-    assign pc_mismatch_alert_o = 1'b0;
   end
 
   if (BranchPredictor) begin : g_branch_predictor
@@ -525,17 +292,11 @@ module cve2_if_stage import cve2_pkg::*; #(
     logic        predict_branch_taken_raw;
 
     // ID stages needs to know if branch was predicted taken so it can signal mispredicts
-    if (ResetAll) begin : g_bp_taken_ra
+    begin : g_bp_taken
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
           instr_bp_taken_q <= '0;
         end else if (if_id_pipe_reg_we) begin
-          instr_bp_taken_q <= instr_bp_taken_d;
-        end
-      end
-    end else begin : g_bp_taken_nr
-      always_ff @(posedge clk_i) begin
-        if (if_id_pipe_reg_we) begin
           instr_bp_taken_q <= instr_bp_taken_d;
         end
       end
@@ -551,7 +312,7 @@ module cve2_if_stage import cve2_pkg::*; #(
 
     assign instr_skid_en = predict_branch_taken & ~pc_set_i & ~id_in_ready_i & ~instr_skid_valid_q;
 
-    assign instr_skid_valid_d = (instr_skid_valid_q & ~id_in_ready_i & ~stall_dummy_instr) |
+    assign instr_skid_valid_d = (instr_skid_valid_q & ~id_in_ready_i) |
                                 instr_skid_en;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -562,21 +323,13 @@ module cve2_if_stage import cve2_pkg::*; #(
       end
     end
 
-    if (ResetAll) begin : g_instr_skid_ra
+    begin : g_instr_skid
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
           instr_skid_bp_taken_q <= '0;
           instr_skid_data_q     <= '0;
           instr_skid_addr_q     <= '0;
         end else if (instr_skid_en) begin
-          instr_skid_bp_taken_q <= predict_branch_taken;
-          instr_skid_data_q     <= fetch_rdata;
-          instr_skid_addr_q     <= fetch_addr;
-        end
-      end
-    end else begin : g_instr_skid_nr
-      always_ff @(posedge clk_i) begin
-        if (instr_skid_en) begin
           instr_skid_bp_taken_q <= predict_branch_taken;
           instr_skid_data_q     <= fetch_rdata;
           instr_skid_addr_q     <= fetch_addr;
@@ -610,7 +363,7 @@ module cve2_if_stage import cve2_pkg::*; #(
     assign if_instr_bus_err = ~instr_skid_valid_q & fetch_err;
     assign instr_bp_taken_d = instr_skid_valid_q ? instr_skid_bp_taken_q : predict_branch_taken;
 
-    assign fetch_ready = id_in_ready_i & ~stall_dummy_instr & ~instr_skid_valid_q;
+    assign fetch_ready = id_in_ready_i & ~instr_skid_valid_q;
 
     assign instr_bp_taken_o = instr_bp_taken_q;
 
@@ -625,7 +378,7 @@ module cve2_if_stage import cve2_pkg::*; #(
     assign if_instr_rdata = fetch_rdata;
     assign if_instr_addr  = fetch_addr;
     assign if_instr_bus_err = fetch_err;
-    assign fetch_ready = id_in_ready_i & ~stall_dummy_instr;
+    assign fetch_ready = id_in_ready_i;
   end
 
   ////////////////

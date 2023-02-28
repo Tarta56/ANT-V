@@ -5,7 +5,6 @@ Core Integration
 
 The main module is named ``cve2_top`` and can be found in ``cve2_top.sv``.
 Note that the core logic is split-out from the register file and RAMs under ``cve2_top``.
-This is to facilitate a dual-core lockstep implementation (see :ref:`security`).
 
 Below, the instantiation template is given and the parameters and interfaces are described.
 
@@ -20,11 +19,7 @@ Instantiation Template
       .RV32E            ( 0                                ),
       .RV32M            ( cve2_pkg::RV32MFast              ),
       .RegFile          ( cve2_pkg::RegFileFF              ),
-      .ICache           ( 0                                ),
-      .ICacheECC        ( 0                                ),
-      .ICacheScramble   ( 0                                ),
       .BranchPrediction ( 0                                ),
-      .SecureIbex       ( 0                                ),
       .RndCnstLfsrSeed  ( cve2_pkg::RndCnstLfsrSeedDefault ),
       .RndCnstLfsrPerm  ( cve2_pkg::RndCnstLfsrPermDefault ),
       .DmHaltAddr       ( 32'h1A110800                     ),
@@ -108,26 +103,7 @@ Parameters
 | ``WritebackStage``           | bit                 | 0          | *EXPERIMENTAL* - Enables third pipeline stage (writeback)             |
 |                              |                     |            | improving performance of loads and stores                             |
 +------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``ICache``                   | bit                 | 0          | *EXPERIMENTAL* Enable instruction cache instead of prefetch           |
-|                              |                     |            | buffer                                                                |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``ICacheECC``                | bit                 | 0          | *EXPERIMENTAL* Enable SECDED ECC protection in ICache (if             |
-|                              |                     |            | ICache == 1)                                                          |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``ICacheScramble``           | bit                 | 0          | *EXPERIMENTAL* Enabling this parameter replaces tag and data RAMs of  |
-|                              |                     |            |  ICache with scrambling RAM primitives.                               |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
 | ``BranchPrediction``         | bit                 | 0          | *EXPERIMENTAL* Enable Static branch prediction                        |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``SecureIbex``               | bit                 | 0          | *EXPERIMENTAL* Enable various additional features targeting           |
-|                              |                     |            | secure code execution. Note: SecureIbex == 1'b1 and                   |
-|                              |                     |            | RV32M == cve2_pkg::RV32MNone is an illegal combination.               |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``RndCnstLfsrSeed``          | lfsr_seed_t         | see above  | Set the starting seed of the LFSR used to generate dummy instructions |
-|                              |                     |            | (only relevant when SecureIbex == 1'b1)                               |
-+------------------------------+---------------------+------------+-----------------------------------------------------------------------+
-| ``RndCnstLfsrPerm``          | lfsr_perm_t         | see above  | Set the permutation applied to the output of the LFSR used to         |
-|                              |                     |            | generate dummy instructions (only relevant when SecureIbex == 1'b1)   |
 +------------------------------+---------------------+------------+-----------------------------------------------------------------------+
 | ``DmHaltAddr``               | int                 | 0x1A110800 | Address to jump to when entering Debug Mode                           |
 +------------------------------+---------------------+------------+-----------------------------------------------------------------------+
@@ -162,9 +138,6 @@ Interfaces
 | ``scan_rst_ni``            | 1                       | in  | Test controlled reset.  If DFT not     |
 |                            |                         |     | used, tie off to 1.                    |
 +----------------------------+-------------------------+-----+----------------------------------------+
-| ``ram_cfg_i``              | 10                      | in  | RAM configuration inputs, routed to    |
-|                            |                         |     | the icache RAMs                        |
-+----------------------------+-------------------------+-----+----------------------------------------+
 | ``hart_id_i``              | 32                      | in  | Hart ID, usually static, can be read   |
 |                            |                         |     | from :ref:`csr-mhartid` CSR            |
 +----------------------------+-------------------------+-----+----------------------------------------+
@@ -178,8 +151,6 @@ Interfaces
 +----------------------------+------------------------------------------------------------------------+
 | ``irq_*``                  | Interrupt inputs, see :ref:`exceptions-interrupts`                     |
 +----------------------------+-------------------------+-----+----------------------------------------+
-| ``scramble_*``             | Scrambling key interface, see :ref:`icache`                            |
-+----------------------------+------------------------------------------------------------------------+
 | ``debug_*``                | Debug interface, see :ref:`debug-support`                              |
 +----------------------------+------------------------------------------------------------------------+
 | ``crash_dump_o``           | A set of signals that can be captured on reset to aid crash debugging. |
