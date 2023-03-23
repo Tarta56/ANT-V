@@ -3,13 +3,6 @@ description: Create a CVE2 bug
 title: "[BUG] <title>"
 labels: ["Type:Bug"]
 body:
-- type: checkboxes
-  attributes:
-    label: Is there an existing CVE2 bug for this?
-    description: Please search to see if an issue already exist for the bug you need to create
-    options:
-    - label: I have searched the existing bug issues
-      required: true
 - type: textarea
   attributes:
     label: Bug Description

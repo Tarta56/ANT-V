@@ -3,13 +3,6 @@ description: Create a CVE2 Project Task
 title: "[TASK] <title>"
 labels: ["task"]
 body:
-- type: checkboxes
-  attributes:
-    label: Is there an existing CVE2 task for this?
-    description: Please search to see if a task issue already exists for the task you need to create
-    options:
-    - label: I have searched the existing task issues
-      required: true
 - type: textarea
   attributes:
     label: Task Description
