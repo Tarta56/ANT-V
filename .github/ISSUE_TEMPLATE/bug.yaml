@@ -1,0 +1,11 @@
+name: CVE2 bug
+description: Create a CVE2 bug
+title: "[BUG] <title>"
+labels: ["Type:Bug"]
+body:
+- type: textarea
+  attributes:
+    label: Bug Description
+    description: A concise description of the bug
+  validations:
+    required: true
