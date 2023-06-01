@@ -26,6 +26,7 @@ module cve2_id_stage #(
   input  logic                      clk_i,
   input  logic                      rst_ni,
 
+  input  logic                      fetch_enable_i,
   output logic                      ctrl_busy_o,
   output logic                      illegal_insn_o,
 
@@ -454,6 +455,7 @@ module cve2_id_stage #(
     .clk_i (clk_i),
     .rst_ni(rst_ni),
 
+    .fetch_enable_i(fetch_enable_i),
     .ctrl_busy_o(ctrl_busy_o),
 
     // decoder related signals
@@ -492,7 +494,7 @@ module cve2_id_stage #(
     .lsu_addr_last_i(lsu_addr_last_i),
     .load_err_i     (lsu_load_err_i),
     .store_err_i    (lsu_store_err_i),
-
+    .id_exception_o (),
     // jump/branch control
     .branch_set_i     (branch_set),
     .branch_not_set_i (branch_not_set),

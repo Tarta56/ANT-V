@@ -103,6 +103,7 @@ module cve2_core import cve2_pkg::*; #(
 `endif
 
   // CPU Control Signals
+  input  logic                         fetch_enable_i,
   output logic                         core_busy_o
 );
 
@@ -262,7 +263,6 @@ module cve2_core import cve2_pkg::*; #(
 
   logic        perf_instr_ret_wb;
   logic        perf_instr_ret_compressed_wb;
-  logic        perf_instr_ret_compressed_wb_spec;
   logic        perf_iside_wait;
   logic        perf_dside_wait;
   logic        perf_wfi_wait;
@@ -368,6 +368,7 @@ module cve2_core import cve2_pkg::*; #(
     .rst_ni(rst_ni),
 
     // Processor Enable
+    .fetch_enable_i(fetch_enable_i),
     .ctrl_busy_o   (ctrl_busy),
     .illegal_insn_o(illegal_insn_id),
 
