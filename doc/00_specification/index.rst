@@ -45,7 +45,7 @@ Core-V-Verification methodologies. The source :term:`RTL` code is written in
 SystemVerilog and maintained by the OpenHW Group.
 
 This specification is organized as requirements that apply to the “Scope
-of the :term:`IP`”. The Revision 0.1 of this requirements document is intended
+of the :term:`IP`". The Revision 0.1 of this requirements document is intended
 to specify the “Version 1” E20 design - there are already plans for
 subsequent enhancements that will be included in a Version 2 (and
 possibly beyond) design releases. Subsequent revision numbers are
@@ -72,7 +72,7 @@ The **scope of the IP** is the processor core subsystem that is
 specified below and that is verified with a 100% coverage goal. In the
 verification plans, the scope of the IP can be partitioned into two DUTs
 (designs under test) - one covering the processor core itself, and a
-“\ **:term:`coreplex`**\ ” covering the processor “core complex” which adds
+:term:`coreplex` covering the processor "core complex" which adds
 debug capabilities, an interrupt controller and system bus protocol
 wrappers to the E20 core.
 
@@ -124,9 +124,9 @@ are available.
 Unless otherwise stated, optional features are controlled by
 SystemVerilog parameters. If not selected, each optional feature is not
 present in the netlist after synthesis. The reader's attention is drawn
-to the difference between an optional feature (“...\ *shall* support as
-an option...”) versus a desired goal (“...\ *should* support...”,
-“...\ *should* reduce latency...”).
+to the difference between an optional feature ("...\ *shall* support as
+an option...") versus a desired goal ("...\ *should* support...",
+"...\ *should* reduce latency...").
 
 The following topics are beyond the scope of this specification:
 
@@ -705,9 +705,14 @@ but is not yet ratified at the time of specification.
 +---------+------------------------------------------------------------+
 | IRQ-20  | CV32E20 shall implement one Non-Maskable Interrupt (NMI),  |
 |         | which is triggered from an external signal. The            |
-|         | corresponding excpection code is 31, and mcause will be    |
-|         | set to 0x8000001F.                                         |
+|         | corresponding excpection code is 32.                       |
 +---------+------------------------------------------------------------+
+| IRQ-30  | The NMI implemented by CV32E20 shall be resumable.         |
++---------+------------------------------------------------------------+
+
+It should be noted that Ibex had implemented a custom mechanism for NMI 
+recovery. A standard RISC-V way of NMI recovery is in draft stage. In
+future, the custom mechanism could be reworked to follow the standard.
 
 Coprocessor interface
 ---------------------
