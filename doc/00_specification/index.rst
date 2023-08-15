@@ -199,8 +199,7 @@ Other documents
 ===============
 
 .. [FPGAreset] Ken Chapman, “Get Smart About Reset: Think Local, Not
-Global”, Xilinx WP272 white paper,
-https://docs.xilinx.com/v/u/en-US/wp272
+Global”, Xilinx WP272 white paper, https://docs.xilinx.com/v/u/en-US/wp272
 
 CV32E20 core functional requirements
 ====================================
@@ -695,10 +694,19 @@ the IP.
 Interrupts
 ----------
 
+CLINT is the default interrupt controller in [RVpriv]_. It is limited to 
+32 custom IRQs for RV32. A CLIC [RVsmclic]_ supports up to 4.064 IRQs,
+but is not yet ratified at the time of specification. 
+
 +---------+------------------------------------------------------------+
 | IRQ-10  | CV32E20 shall implement interrupt handling registers as    |
 |         | per the RISC-V privilege specification and interface with  |
-|         | a CLIC implementation.                                     |
+|         | a CLINT implementation.                                    |
++---------+------------------------------------------------------------+
+| IRQ-20  | CV32E20 shall implement one Non-Maskable Interrupt (NMI),  |
+|         | which is triggered from an external signal. The            |
+|         | corresponding excpection code is 31, and mcause will be    |
+|         | set to 0x8000001F.                                         |
 +---------+------------------------------------------------------------+
 
 Coprocessor interface
