@@ -199,7 +199,7 @@ Other documents
 ===============
 
 .. [FPGAreset] Ken Chapman, “Get Smart About Reset: Think Local, Not
-Global”, Xilinx WP272 white paper, https://docs.xilinx.com/v/u/en-US/wp272
+   Global”, Xilinx WP272 white paper, https://docs.xilinx.com/v/u/en-US/wp272
 
 CV32E20 core functional requirements
 ====================================
@@ -794,7 +794,7 @@ the integration in FPGA and ASIC design flows:
 | PDR-20  | For certain FPGA targets, CV32E20 may remove the reset in  |
 |         | the RTL code.                                              |
 |         |                                                            |
-|         | See [FPGAreset] for background information on this         |
+|         | See [FPGAreset]_ for background information on this        |
 |         | requirement.                                               |
 +---------+------------------------------------------------------------+
 
