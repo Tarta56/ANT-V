@@ -31,29 +31,29 @@ limitations under the License.
 Introduction
 ============
 
-The OpenHW Group CV32E20, or simply E20, is a RISC-V processor core that
-is targeted for the ultra-low-end of the 32-bit microcontroller (MCU)
+The OpenHW Group CV32E20, or simply E20, is a :term:`RISC-V` processor core that
+is targeted for the ultra-low-end of the 32-bit microcontroller (:term:`MCU`)
 application space. Likely uses include any “constrained compute socket”
-or as the processor element in embedded SoC subsystems.
+or as the processor element in embedded :term:`SoC` subsystems.
 
 The core design was originally developed as the PULPino *ZeroRISCY*
 processor by ETH Zürich and the University of Bologna and later enhanced
 by the lowRISC consortium as the *Ibex* core. For this project, the Ibex
 design description is copied and further enhanced by the OpenHW Group.
 The design is qualified using the industrial-strength
-Core-V-Verification methodologies. The source RTL code is written in
+Core-V-Verification methodologies. The source :term:`RTL` code is written in
 SystemVerilog and maintained by the OpenHW Group.
 
 This specification is organized as requirements that apply to the “Scope
-of the IP”. The Revision 0.1 of this requirements document is intended
-to specify the “Version 1” E20 design – there are already plans for
+of the :term:`IP`”. The Revision 0.1 of this requirements document is intended
+to specify the “Version 1” E20 design - there are already plans for
 subsequent enhancements that will be included in a Version 2 (and
 possibly beyond) design releases. Subsequent revision numbers are
 placeholders for these enhancements after the initial project freeze
 (PF) gate.
 
 The requirement list is to be approved by the OpenHW Group Technical
-Work Group (TWG), as well as any subsequent change requests.
+Work Group (:term:`TWG`), as well as any subsequent change requests.
 
 The specification is complemented by a user's guide.
 
@@ -72,7 +72,7 @@ The **scope of the IP** is the processor core subsystem that is
 specified below and that is verified with a 100% coverage goal. In the
 verification plans, the scope of the IP can be partitioned into two DUTs
 (designs under test) - one covering the processor core itself, and a
-“\ **coreplex**\ ” covering the processor “core complex” which adds
+“\ **:term:`coreplex`**\ ” covering the processor “core complex” which adds
 debug capabilities, an interrupt controller and system bus protocol
 wrappers to the E20 core.
 
@@ -86,8 +86,8 @@ diagram of the E20 core is shown below:
 As displayed in this core block diagram, the E20 is a 2-stage pipelined
 implementation featuring a 32-bit Harvard memory architecture for
 independent instruction fetch and data load/store interfaces. The first
-pipeline stage is the instruction fetch (IF), while the second stage is
-the Instruction Decode and Execute (ID/EX).
+pipeline stage is the instruction fetch (:term:`IF`), while the second stage is
+the Instruction Decode and Execute (:term:`ID/EX`).
 
 As displayed in the above figure, the IP comprises:
 
@@ -97,7 +97,7 @@ As displayed in the above figure, the IP comprises:
 
    -  Support for both RV32I (32 x 32b GPRs) and RV32E (16 x 32b GPRs)
 
-   -  Support for ISA extensions: C (compressed) and M (multiply &
+   -  Support for :term:`ISA` extensions: C (compressed) and M (multiply &
       divide)
 
    -  Support for basic set of Configuration & Status Registers (CSRs)
@@ -110,12 +110,12 @@ As displayed in the above figure, the IP comprises:
 At the coreplex design level, the following functions are added to the
 processor core:
 
--  Debug module including the DTM
+-  Debug module including the :term:`DTM`
 
 -  Interrupt module
 
 -  System bus wrappers to convert from OBI [OPENHW-OBI]_ to the
-   AMBA-AHB (Advanced Microcontroller Bus Architecture, Advanced
+   :term:`AMBA`-:term:`AHB` (Advanced Microcontroller Bus Architecture, Advanced
    High-performance Bus) protocol [AMBA-AHB]_
 
 In addition to these main configurations, multiple fine grain parameters
@@ -130,7 +130,7 @@ an option...”) versus a desired goal (“...\ *should* support...”,
 
 The following topics are beyond the scope of this specification:
 
--  Software (SW layers), such as compilers, assemblers and OSes
+-  Software (SW layers), such as compilers, assemblers and :term:`OSes`
    (although these could be part of the OpenHW Group CV32E20 project)
 
 -  Software emulation of RISC-V optional extensions (feasible but the
@@ -150,11 +150,11 @@ parameters for each golden configuration are detailed in the user guide.
 +----------------------------+-----------------+----------------------+
 | Configuration              | Target          | RV32{E,I} ISA        |
 +----------------------------+-----------------+----------------------+
-| cv32e2_emc_fpga            | FPGA            | RV32EMC              |
+| cv32e2_emc_fpga            | :term:`FPGA`    | RV32EMC              |
 +----------------------------+-----------------+----------------------+
 | cv32e2_imc_fpga            | FPGA            | RV32IMC              |
 +----------------------------+-----------------+----------------------+
-| cv32e2_emc_asic            | ASIC            | RV32EMC              |
+| cv32e2_emc_asic            | :term:`ASIC`    | RV32EMC              |
 +----------------------------+-----------------+----------------------+
 | cv32e2_imc_asic            | ASIC            | RV32IMC              |
 +----------------------------+-----------------+----------------------+
@@ -659,7 +659,7 @@ CV32E20 coreplex memory bus
 |        | HMASTER_WIDTH 0                                             |
 +--------+-------------------------------------------------------------+
 | MEM-60 | The CV32E20 coreplex AHB5 bus protocol shall not support    |
-|        | signaling associated with exclusive accesses – this implies |
+|        | signaling associated with exclusive accesses - this implies |
 |        | the HEXCL and HEXOKAY control signals are not used.         |
 +--------+-------------------------------------------------------------+
 | MEM-70 | The CV32E20 coreplex AHB5 bus protocol shall encode the     |
@@ -695,13 +695,13 @@ Interrupts
 ----------
 
 CLINT is the default interrupt controller in [RVpriv]_. It is limited to 
-32 custom IRQs for RV32. A CLIC [RVsmclic]_ supports up to 4.064 IRQs,
+32 custom IRQs for RV32. A :term:`CLIC` [RVsmclic]_ supports up to 4.064 IRQs,
 but is not yet ratified at the time of specification. 
 
 +---------+------------------------------------------------------------+
 | IRQ-10  | CV32E20 shall implement interrupt handling registers as    |
 |         | per the RISC-V privilege specification and interface with  |
-|         | a CLINT implementation.                                    |
+|         | a :term:`CLINT` implementation.                            |
 +---------+------------------------------------------------------------+
 | IRQ-20  | CV32E20 shall implement one Non-Maskable Interrupt (NMI),  |
 |         | which is triggered from an external signal. The            |
@@ -791,7 +791,7 @@ the integration in FPGA and ASIC design flows:
 |         | parameter can be used to select between the                |
 |         | implementations.                                           |
 +---------+------------------------------------------------------------+
-| PDR-20  | For certain FPGA targets, CV32E20 may remove the reset in  |
+| PDR-60  | For certain FPGA targets, CV32E20 may remove the reset in  |
 |         | the RTL code.                                              |
 |         |                                                            |
 |         | See [FPGAreset]_ for background information on this        |
@@ -801,72 +801,94 @@ the integration in FPGA and ASIC design flows:
 List of abbreviations
 =====================
 
-+------+---------------------------------------------------------------+
-| AHB  | Advanced High-performance Bus                                 |
-+======+===============================================================+
-| ALU  | Arithmetic/Logic Unit                                         |
-+------+---------------------------------------------------------------+
-| AMBA | Arm's Advanced Microcontroller Bus Architecture               |
-+------+---------------------------------------------------------------+
-| ASIC | Application-Specific Integrated Circuit                       |
-+------+---------------------------------------------------------------+
-| AXI  | Advanced eXtensible Interface                                 |
-+------+---------------------------------------------------------------+
-| CLIC | Core-Local Interrupt Controller                               |
-+------+---------------------------------------------------------------+
-| C    | SiFive Core-Local Interruptor                                 |
-| LINT |                                                               |
-+------+---------------------------------------------------------------+
-| core | Core Complex                                                  |
-| plex |                                                               |
-+------+---------------------------------------------------------------+
-| CSR  | Control and Status Register                                   |
-+------+---------------------------------------------------------------+
-| CV-  | Core-V Coprocessor (X) Interface                              |
-| X-IF |                                                               |
-+------+---------------------------------------------------------------+
-| DTM  | Debug Transport Module                                        |
-+------+---------------------------------------------------------------+
-| DUT  | Device Under Test                                             |
-+------+---------------------------------------------------------------+
-| FPGA | Field Programmable Gate Array                                 |
-+------+---------------------------------------------------------------+
-| GP   | CPU General-Purpose Register(s)                               |
-| R(s) |                                                               |
-+------+---------------------------------------------------------------+
-| I    | Pipeline stage: Instruction Decode & Execute                  |
-| D/EX |                                                               |
-+------+---------------------------------------------------------------+
-| IF   | Pipeline stage: Instruction Fetch                             |
-+------+---------------------------------------------------------------+
-| IP   | Intellectual Property                                         |
-+------+---------------------------------------------------------------+
-| ISA  | Instruction Set Architecture                                  |
-+------+---------------------------------------------------------------+
-| LSU  | CPU Load/Store Unit                                           |
-+------+---------------------------------------------------------------+
-| MCU  | Microcontroller                                               |
-+------+---------------------------------------------------------------+
-| MHz  | Megahertz                                                     |
-+------+---------------------------------------------------------------+
-| MULT | CPU Multiplier                                                |
-+------+---------------------------------------------------------------+
-| OBI  | Open Bus Interface protocol                                   |
-+------+---------------------------------------------------------------+
-| OSes | Operating Systems                                             |
-+------+---------------------------------------------------------------+
-| PF   | Open Hardware Group Project Freeze                            |
-+------+---------------------------------------------------------------+
-| PLIC | Platform-Level Interrupt Controller                           |
-+------+---------------------------------------------------------------+
-| RI   | 5th generation of UC Berkeley reduced instruction set         |
-| SC-V | computing,                                                    |
-|      |                                                               |
-|      | pronounced as "risk-five"                                     |
-+------+---------------------------------------------------------------+
-| RTL  | Register-Transfer Language                                    |
-+------+---------------------------------------------------------------+
-| SoC  | System on a Chip                                              |
-+------+---------------------------------------------------------------+
-| TWG  | Technical Working Group                                       |
-+------+---------------------------------------------------------------+
+.. glossary::
+
+   AHB
+      Advanced High-performance Bus
+
+   ALU
+      Arithmetic/Logic Unit
+
+   AMBA
+      Arm(R)'s Advanced Microcontroller Bus Architecture 
+
+   ASIC
+      Application-Specific Integrated Circuit 
+
+   AXI
+      Advanced eXtensible Interface
+
+   CLIC
+      Core-Local Interrupt Controller
+
+   CLINT
+      RISC-V Privileged Specification Interrupt Controller
+
+   coreplex
+      Core Complex
+
+   CSR
+      Control and Status Register
+
+   CV-X-IF
+      Core-V Coprocessor (X) Interface
+
+   DTM
+      Debug Transport Module
+      
+   DUT
+      Device Under Test
+      
+   FPGA
+      Field Programmable Gate Array
+   
+   GPR(s)
+      CPU General-Purpose Register(s)
+   
+   ID/EX
+      Pipeline stage: Instruction Decode & Execute
+      
+   IF
+      Pipeline stage: Instruction Fetch
+      
+   IP
+      Intellectual Property
+      
+   ISA
+      Instruction Set Architecture
+   
+   LSU
+      CPU Load/Store Unit
+      
+   MCU
+      Microcontroller
+      
+   MHz
+      Megahertz
+      
+   MULT
+      CPU Multiplier
+      
+   OBI
+      Open Bus Interface protocol
+   
+   OSes
+      Operating Systems
+   
+   PF
+      Open Hardware Group Project Freeze 
+      
+   PLIC
+      Platform-Level Interrupt Controller
+      
+   RISC-V
+      5th generation of UC Berkeley reduced instruction set computing, pronounced as "risk-five" 
+      
+   RTL
+      Register-Transfer Language
+      
+   SoC
+      System on a Chip 
+      
+   TWG
+      Technical Working Group
