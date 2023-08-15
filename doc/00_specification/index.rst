@@ -123,7 +123,7 @@ are available.
 
 Unless otherwise stated, optional features are controlled by
 SystemVerilog parameters. If not selected, each optional feature is not
-present in the netlist after synthesis. The reader’s attention is drawn
+present in the netlist after synthesis. The reader's attention is drawn
 to the difference between an optional feature (“...\ *shall* support as
 an option...”) versus a desired goal (“...\ *should* support...”,
 “...\ *should* reduce latency...”).
@@ -169,38 +169,38 @@ To ease the reading, the reference to these specifications is implicit
 in the requirements below. For the sake of precision, the requirements
 identify the versions of RISC-V extensions from these specifications.
 
-[RVuser] “The RISC-V Instruction Set Manual, Volume I: Unprivileged ISA,
-Document Version 20191213”, Editors Andrew Waterman and Krste Asanović,
-RISC-V Foundation, December 13, 2019.
+.. [RVunpriv] “The RISC-V Instruction Set Manual, Volume I: Unprivileged ISA,
+   Document Version 20191213”, Editors Andrew Waterman and Krste Asanović,
+   RISC-V Foundation, December 2019.
 
-[RVpriv] “The RISC-V Instruction Set Manual, Volume II: Privileged
-Architecture, Document Version 20211203”, Editors Andrew Waterman and
-Krste Asanović, RISC-V Foundation, December 4, 2021.
+.. [RVpriv] “The RISC-V Instruction Set Manual, Volume II: Privileged
+   Architecture, Document Version 20211203”, Editors Andrew Waterman,
+   Krste Asanović, and John Hauser, RISC-V International, December 2021.
 
-[RVdbg-RATIFIED] “RISC-V External Debug Support, Document Version
-0.13.2”, Editors Tim Newsome and Megan Wachs, RISC-V Foundation, March
-22, 2019.
+.. [RVdbg-RATIFIED] “RISC-V External Debug Support, Document Version
+   0.13.2”, Editors Tim Newsome and Megan Wachs, RISC-V Foundation, March
+   22, 2019.
 
-[RVdbg-STABLE] “RISC-V External Debug Support, Document Version
-1.0.0-STABLE”, Editors Ernie Edgar and Tim Newsome, RISC-V Foundation,
-April 7, 2022.
+.. [RVdbg-STABLE] “RISC-V External Debug Support, Document Version
+   1.0.0-STABLE”, Editors Ernie Edgar and Tim Newsome, RISC-V Foundation,
+   April 7, 2022.
 
-[OPENHW-OBI] OpenHW Open Bus Interface (OBI) protocol, version 1.4,
-*https://github.com/openhwgroup/core-v-docs/blob/master/cores/obi/OBI-v1.4.pdf*
+.. [OPENHW-OBI] OpenHW Open Bus Interface (OBI) protocol, version 1.4,
+   https://github.com/openhwgroup/core-v-docs/blob/master/cores/obi/OBI-v1.4.pdf
 
-[AMBA] “AMBA® AHB Protocol Specification”, ARM IHI 0033C (ID090921),
-https://developer.arm.com/documentation/ihi0033/latest.
+.. [AMBA] “AMBA® AHB Protocol Specification”, ARM IHI 0033C (ID090921),
+   https://developer.arm.com/documentation/ihi0033/latest
 
-[RVsmclic] “Smclic” Core-Local Interrupt Controller (CLIC) RISC-V
-Privileged Architecture Extension, version 0.9-draft, 3/15/2022,
-*https://github.com/riscv/riscv-fast-interrupt/blob/master/clic.pdf.*
+.. [RVsmclic] “Smclic” Core-Local Interrupt Controller (CLIC) RISC-V
+   Privileged Architecture Extension, version 0.9-draft, 3/15/2022,
+   https://github.com/riscv/riscv-fast-interrupt/blob/master/clic.pdf
 
 Other documents
 ===============
 
-[FPGAreset] Ken Chapman, “Get Smart About Reset: Think Local, Not
+.. [FPGAreset] Ken Chapman, “Get Smart About Reset: Think Local, Not
 Global”, Xilinx WP272 white paper,
-*https://docs.xilinx.com/v/u/en-US/wp272*.
+https://docs.xilinx.com/v/u/en-US/wp272
 
 CV32E20 core functional requirements
 ====================================
@@ -267,7 +267,7 @@ Control and Status Registers (CSRs)
 
 +--------+--------------------------------------------------------------+
 | CSR-10 | CV32E20 shall implement all mandatory CSRs of Debug, Machine |
-|        | and User modes as per specifications in [RVpriv].            |
+|        | and User modes as per specifications in [RVpriv]_.           |
 +--------+--------------------------------------------------------------+
 
 In keeping with the CV32E20’s smallest size and power core targets, the
@@ -277,7 +277,7 @@ The implemented set of CSRs includes the following registers:
 
 +--------+--------------------------------------------------------------+
 | CSR-20 | CV32E20 shall implement these mandatory Machine Mode CSRs as |
-|        | per specifications in [RVpriv]. Optional registers are       |
+|        | per specifications in [RVpriv]_. Optional registers are      |
 |        | *highlighted*. The registers are listed based on ascending   |
 |        | CSR number.                                                  |
 |        |                                                              |
@@ -430,7 +430,7 @@ lower order 32-bit register.
 +--------+---------------------------------------------------------------+
 | HPM-10 | CV32E20 shall implement the 64-bit mcycle and minstret        |
 |        | standard performance counters (including their upper 32 bits  |
-|        | counterparts mcycleh and minstreth) as per [RVpriv]:          |
+|        | counterparts mcycleh and minstreth) as per [RVpriv]_:         |
 |        |                                                               |
 |        | CSR Number PM Counter Description                             |
 |        |                                                               |
