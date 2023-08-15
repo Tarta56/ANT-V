@@ -55,7 +55,7 @@ placeholders for these enhancements after the initial project freeze
 The requirement list is to be approved by the OpenHW Group Technical
 Work Group (TWG), as well as any subsequent change requests.
 
-The specification is complemented by a user’s guide.
+The specification is complemented by a user's guide.
 
 *A list of abbreviations is available at the end of this document.*
 
@@ -114,9 +114,9 @@ processor core:
 
 -  Interrupt module
 
--  System bus wrappers to convert from OBI to the AMBA-AHB (Advanced
-   Microcontroller Bus Architecture, Advanced High-performance Bus)
-   protocol
+-  System bus wrappers to convert from OBI [OPENHW-OBI]_ to the
+   AMBA-AHB (Advanced Microcontroller Bus Architecture, Advanced
+   High-performance Bus) protocol [AMBA-AHB]_
 
 In addition to these main configurations, multiple fine grain parameters
 are available.
@@ -188,7 +188,7 @@ identify the versions of RISC-V extensions from these specifications.
 .. [OPENHW-OBI] OpenHW Open Bus Interface (OBI) protocol, version 1.4,
    https://github.com/openhwgroup/core-v-docs/blob/master/cores/obi/OBI-v1.4.pdf
 
-.. [AMBA] “AMBA® AHB Protocol Specification”, ARM IHI 0033C (ID090921),
+.. [AMBA-AHB] “AMBA® AHB Protocol Specification”, ARM IHI 0033C (ID090921),
    https://developer.arm.com/documentation/ihi0033/latest
 
 .. [RVsmclic] “Smclic” Core-Local Interrupt Controller (CLIC) RISC-V
@@ -221,7 +221,8 @@ RISC-V standard instructions
 ----------------------------
 
 To ease tracing for verification, the extensions are split into
-independent requirements.
+independent requirements. All bases and extensions are specified in 
+[RVunpriv]_.
 
 +--------+---------------------------------------------------------------+
 | ISA-10 | CV32E20 shall support **RV32I** base instruction set, version |
@@ -253,10 +254,10 @@ Operating modes (Privilege Levels)
 | PVL-20 | CV32E20 shall support **machine** and **unprivileged**       |
 |        | privilege modes.                                             |
 +--------+--------------------------------------------------------------+
-| PVL-30 | CV32E20 shall export the CPU’s operating mode as an address  |
+| PVL-30 | CV32E20 shall export the CPU's operating mode as an address  |
 |        | phase attribute output signals on the Harvard memory         |
 |        | interfaces (instruction fetch, data load/store) with machine |
-|        | mode defined as 1’b1 and user mode as 1’b0.                  |
+|        | mode defined as 1'b1 and user mode as 1'b0.                  |
 +--------+--------------------------------------------------------------+
 | PVL-40 | CV32E20 shall support the **bare** (addressing) mode, that   |
 |        | is, no support for address translation or protection.        |
@@ -270,7 +271,7 @@ Control and Status Registers (CSRs)
 |        | and User modes as per specifications in [RVpriv]_.           |
 +--------+--------------------------------------------------------------+
 
-In keeping with the CV32E20’s smallest size and power core targets, the
+In keeping with the CV32E20's smallest size and power core targets, the
 implemented set of CSRs is intentionally minimized.
 
 The implemented set of CSRs includes the following registers:
@@ -593,7 +594,7 @@ lower order 32-bit register.
 |        | mphm{event,counter}11 has a different definition for the E20  |
 |        | core versus Ibex. This counter no longer tracks multiply      |
 |        | cycles, but rather, the cycles when the core is quiescent in  |
-|        | the ‘wait for interrupt’ state.                               |
+|        | the ‘wait for interrupt' state.                               |
 +--------+---------------------------------------------------------------+
 
 Additional details on the CSRs are available in the user manual.
@@ -637,7 +638,7 @@ CV32E20 coreplex memory bus
 |        | If this capability cannot be supported, the coreplex shall  |
 |        | support an optional hardware configuration where all        |
 |        | unaligned data accesses are decomposed into combinations of |
-|        | 8- and 16-bit transfers. This means the ‘worst-case’ data   |
+|        | 8- and 16-bit transfers. This means the ‘worst-case' data   |
 |        | unalignment may require 3 bus cycles (byte, halfword, byte) |
 |        | to complete.                                                |
 +--------+-------------------------------------------------------------+
@@ -667,17 +668,17 @@ CV32E20 coreplex memory bus
 |        | HPROT[1]} bus attribute signals defined as:                 |
 |        |                                                             |
 |        | if E20 core mode = user, then {HNONSECURE, HPROT[1]} =      |
-|        | 2’b10                                                       |
+|        | 2'b10                                                       |
 |        |                                                             |
 |        | if E20 core mode = supervisor, then {HNONSECURE, HPROT[1]}  |
-|        | = 2’b11                                                     |
+|        | = 2'b11                                                     |
 |        |                                                             |
 |        | if E20 core mode = machine, then {HNONSECURE, HPROT[1]} =   |
-|        | 2’b01                                                       |
+|        | 2'b01                                                       |
 +--------+-------------------------------------------------------------+
 | MEM-80 | The CV32E20 coreplex AHB5 bus protocol shall implement a    |
 |        | 4-bit HPROT[*] bus attribute control where HPROT[3:2] is    |
-|        | hardwired to 2’b00.                                         |
+|        | hardwired to 2'b00.                                         |
 +--------+-------------------------------------------------------------+
 
 Debug
