@@ -2,8 +2,6 @@
 CV32E20 Specification
 =====================
 
-Revision 0.1
-
 License
 =======
 
