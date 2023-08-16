@@ -459,11 +459,6 @@ lower order 32-bit register.
 |        | monitoring capabilities in FPGA development targets (and/or   |
 |        | ASIC SoC targets).                                            |
 |        |                                                               |
-|        | **NOTE: The Ibex documentation is incorrect/confusing about   |
-|        | the optional presence of mpmcounter{11,12}. This              |
-|        | specification assumes the Ibex documentation is simply        |
-|        | incorrect for these 2 counters.**                             |
-|        |                                                               |
 |        | CSR Number PM Counter Description                             |
 |        |                                                               |
 |        | 0xb03 mhpmcounter3 // m-mode performance-monitoring counter 3 |
@@ -587,12 +582,17 @@ lower order 32-bit register.
 |        |                                                               |
 |        | 0x32c mphmevent12 // 12, 0x0000_1000                          |
 +--------+---------------------------------------------------------------+
-| NOTE   | It should be mentioned that the event associated with         |
-|        | mphm{event,counter}11 has a different definition for the E20  |
-|        | core versus Ibex. This counter no longer tracks multiply      |
-|        | cycles, but rather, the cycles when the core is quiescent in  |
-|        | the ‘wait for interrupt' state.                               |
-+--------+---------------------------------------------------------------+
+
+.. note::
+   The Ibex documentation is incorrect/confusing about the optional
+   presence of mpmcounter{11,12}. This specification assumes the Ibex
+   documentation is simply incorrect for these 2 counters.
+
+.. note::
+   It should be mentioned that the event associated with 
+   mphm{event,counter}11 has a different definition for the E20 core versus
+   Ibex. This counter no longer tracks multiply cycles, but rather, the
+   cycles when the core is quiescent in the 'wait for interrupt' state.  
 
 Additional details on the CSRs are available in the user manual.
 
@@ -693,8 +693,8 @@ Interrupts
 ----------
 
 CLINT is the default interrupt controller in [RVpriv]_. It is limited to 
-32 custom IRQs for RV32. A :term:`CLIC` [RVsmclic]_ supports up to 4.064 IRQs,
-but is not yet ratified at the time of specification. 
+32 custom IRQs for RV32. A :term:`CLIC` [RVsmclic]_ supports up to 4.064
+IRQs, but is not yet ratified at the time of specification. 
 
 +---------+------------------------------------------------------------+
 | IRQ-10  | CV32E20 shall implement interrupt handling registers as    |
@@ -708,9 +708,10 @@ but is not yet ratified at the time of specification.
 | IRQ-30  | The NMI implemented by CV32E20 shall be resumable.         |
 +---------+------------------------------------------------------------+
 
-It should be noted that Ibex had implemented a custom mechanism for NMI 
-recovery. A standard RISC-V way of NMI recovery is in draft stage. In
-future, the custom mechanism could be reworked to follow the standard.
+.. note::
+   It should be noted that Ibex had implemented a custom mechanism for NMI 
+   recovery. A standard RISC-V way of NMI recovery is in draft stage. In
+   future, the custom mechanism could be reworked to follow the standard.
 
 Coprocessor interface
 ---------------------
