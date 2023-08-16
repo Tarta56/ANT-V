@@ -55,7 +55,7 @@ Work Group (:term:`TWG`), as well as any subsequent change requests.
 
 The specification is complemented by a user's guide.
 
-*A list of abbreviations is available at the end of this document.*
+A `List of Abbreviations`_ is available at the end of this document.
 
 This development is co-sponsored by NXP and Intrinsix, a wholly owned
 subsidiary of CEVA.
@@ -802,7 +802,7 @@ the integration in FPGA and ASIC design flows:
 |         | requirement.                                               |
 +---------+------------------------------------------------------------+
 
-List of abbreviations
+List of Abbreviations
 =====================
 
 .. glossary::
