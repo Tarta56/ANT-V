@@ -1,12 +1,16 @@
-Ibex: An embedded 32 bit RISC-V CPU core
-========================================
+CV32E20: An embedded 32-bit RISC-V CPU core
+===========================================
 
-Ibex is a production-quality open source 32 bit RISC-V CPU core written in SystemVerilog.
-The CPU core is heavily parametrizable and well suited for embedded control applications.
-Ibex is being extensively verified and has seen multiple tape-outs.
+CV32E20 is a production-quality open source 32-bit RISC-V CPU core written in SystemVerilog.
+The CPU core is based on the Ibex core, but simplified and verified under the OpenHW Group.
 
-You are now reading the Ibex documentation.
-The documentation is split into four parts.
+You are now reading the CV32E20 documentation.
+The documentation is split into multiple parts.
+
+The :doc:`Technical Specification <00_specification/index>` Contains the technical specification of CV32E20.
+It defines the supported features in the form of requirements.
+
+The remaining parts of documentation are inherited from the Ibex project. They are kept for reference and will be reworked in the future.
 
 The :doc:`Overview documentation <01_overview/index>` looks at Ibex from high up.
 It answers questions like what are the high-level properties of Ibex, which standards is Ibex following, and where is it typically used.
@@ -24,6 +28,7 @@ Since Ibex is open source, every user of Ibex is encouraged to learn how to adap
    :maxdepth: 2
    :hidden:
 
+   00_specification/index.rst
    01_overview/index.rst
    02_user/index.rst
    03_reference/index.rst
