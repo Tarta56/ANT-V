@@ -58,7 +58,6 @@ release = u'0.1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx_github_changelog',
     'sphinxcontrib.wavedrom',
     'sphinx.ext.todo',
 ]
