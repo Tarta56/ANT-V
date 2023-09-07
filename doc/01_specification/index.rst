@@ -106,8 +106,6 @@ processor core:
 
 -  Debug module including the :term:`DTM`
 
--  Interrupt module
-
 -  System bus wrappers to convert from OBI [OPENHW-OBI]_ to the
    :term:`AMBA`-:term:`AHB` (Advanced Microcontroller Bus Architecture, Advanced
    High-performance Bus) protocol [AMBA-AHB]_
