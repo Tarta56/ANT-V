@@ -242,7 +242,7 @@ Operating modes (Privilege Levels)
 | PVL-10 | CV32E20 shall support only little-endian memory              |
 |        | organizations.                                               |
 +--------+--------------------------------------------------------------+
-| PVL-20 | CV32E20 shall support **machine** and **unprivileged**       |
+| PVL-20 | CV32E20 shall support **machine** and **user**       |
 |        | privilege modes.                                             |
 +--------+--------------------------------------------------------------+
 | PVL-30 | CV32E20 shall export the CPU's operating mode as an address  |
@@ -388,13 +388,13 @@ The implemented set of CSRs includes the following registers:
 |        |                                                              |
 |        | *0xb8c mpmcounter12h // HPM-20: upper word of mpmcounter12*  |
 |        |                                                              |
-|        | 0xc00 cycle // unprivileged mode cycle, lower 32b            |
+|        | 0xc00 cycle // user mode cycle, lower 32b                    |
 |        |                                                              |
-|        | 0xc02 instret // unprivileged mode instret, lower 32b        |
+|        | 0xc02 instret // user mode instret, lower 32b                |
 |        |                                                              |
-|        | 0xc80 cycleh // unprivileged mode cycle, upper 32b           |
+|        | 0xc80 cycleh // user mode cycle, upper 32b                   |
 |        |                                                              |
-|        | 0xc82 instreth // unprivileged mode instret, upper 32b       |
+|        | 0xc82 instreth // user mode instret, upper 32b               |
 |        |                                                              |
 |        | 0xf11 mvendorid // machine vendor ID                         |
 |        |                                                              |
@@ -436,13 +436,13 @@ lower order 32-bit register.
 |        |                                                               |
 |        | 0xb82 minstreth // machine mode instret, upper 32 bits        |
 |        |                                                               |
-|        | 0xc00 cycle // unprivileged mode cycle, lower 32b             |
+|        | 0xc00 cycle // user mode cycle, lower 32b                     |
 |        |                                                               |
-|        | 0xc02 instret // unprivileged mode instret, lower 32b         |
+|        | 0xc02 instret // user mode instret, lower 32b                 |
 |        |                                                               |
-|        | 0xc80 cycleh // unprivileged mode cycle, upper 32b            |
+|        | 0xc80 cycleh // user mode cycle, upper 32b                    |
 |        |                                                               |
-|        | 0xc82 instreth // unprivileged mode instret, upper 32b        |
+|        | 0xc82 instreth // user mode instret, upper 32b                |
 +--------+---------------------------------------------------------------+
 | HPM-20 | CV32E20 should support 10 optional event counters             |
 |        | (mhpmcounterX{h}) and their associated event selector         |
@@ -660,9 +660,6 @@ CV32E20 coreplex memory bus
 |        |                                                             |
 |        | if E20 core mode = user, then {HNONSECURE, HPROT[1]} =      |
 |        | 2'b10                                                       |
-|        |                                                             |
-|        | if E20 core mode = supervisor, then {HNONSECURE, HPROT[1]}  |
-|        | = 2'b11                                                     |
 |        |                                                             |
 |        | if E20 core mode = machine, then {HNONSECURE, HPROT[1]} =   |
 |        | 2'b01                                                       |
