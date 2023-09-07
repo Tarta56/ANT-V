@@ -91,7 +91,8 @@ As displayed in the above figure, the IP comprises:
 
 -  The CV32E20 processor core with dual 32-bit Harvard memory interfaces
 
-   -  Instruction fetch bus, data load/store bus
+   -  Instruction fetch bus, data load/store bus. Protocol is protocol is
+      [OPENHW-OBI]_
 
    -  Support for both RV32I (32 x 32b GPRs) and RV32E (16 x 32b GPRs)
 
@@ -99,11 +100,6 @@ As displayed in the above figure, the IP comprises:
       divide)
 
    -  Support for basic set of Configuration & Status Registers (CSRs)
-
--  Dual 32-bit Harvard memory interfaces
-
-   -  Supported core protocol is OBI_1_v1.2 (Open Bus Interface)
-      definition
 
 At the coreplex design level, the following functions are added to the
 processor core:
