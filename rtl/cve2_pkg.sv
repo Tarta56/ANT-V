@@ -9,6 +9,50 @@
  */
 package cve2_pkg;
 
+  //////////////////////
+  // Vector Extension //
+  //////////////////////
+
+  parameter logic [22:0] VRF_START_ADDR = 23'h00_0064;
+  parameter logic [31:0] VLEN          = 32'd128; // Vector register file length in bits
+  // Vector register file states
+  typedef enum logic [3:0]{
+    VRF_IDLE,
+    VRF_START,
+    VRF_INT_READ1,
+    VRF_INT_READ2,
+    VRF_INT_READ3,
+    VRF_INT_WRITE,
+    VRF_LOAD_SLIDE,
+    VRF_READ,
+    VRF_WRITE,
+    VRF_LOAD,
+    VRF_LOAD_WAITGNT,
+    VRF_LOAD_WRITE,
+    VRF_STORE_READ,
+    VRF_STORE_WAITLSU,
+    VRF_STORE_WAITGNT
+  } vrf_state_t;
+
+  // Vector CSR data types - vsew
+  typedef enum logic[2:0] {
+    VSEW_8 = 3'b000,
+    VSEW_16 = 3'b001,
+    VSEW_32 = 3'b010,
+    VSEW_INVALID = 3'b111
+  } vsew_e;
+   // Vector CSR data types - vlmul
+  typedef enum logic[2:0] {
+    VLMUL_F8 = 3'b101,
+    VLMUL_F4 = 3'b110,
+    VLMUL_F2 = 3'b111,
+    VLMUL_1  = 3'b000,
+    VLMUL_2  = 3'b001,
+    VLMUL_4  = 3'b010,
+    VLMUL_8  = 3'b011
+  } vlmul_e;
+
+
   ////////////////
   // IO Structs //
   ////////////////
@@ -61,7 +105,11 @@ package cve2_pkg;
     OPCODE_BRANCH   = 7'h63,
     OPCODE_JALR     = 7'h67,
     OPCODE_JAL      = 7'h6f,
-    OPCODE_SYSTEM   = 7'h73
+    OPCODE_SYSTEM   = 7'h73,
+    // Vector extension
+    OPCODE_LOAD_V   = 7'h07,
+    OPCODE_STORE_V  = 7'h27,
+    OPCODE_OP_V     = 7'h57
   } opcode_e;
 
 
@@ -168,6 +216,14 @@ package cve2_pkg;
     ALU_CLMUL,
     ALU_CLMULR,
     ALU_CLMULH,
+   
+    // Vector extension
+    ALU_MOVE,
+    ALU_MAC,
+    ALU_NMSAC,
+    ALU_MADD,
+    ALU_NMSUB,
+    ALU_SLIDE,
 
     // Cyclic Redundancy Check
     ALU_CRC32_B,
@@ -230,23 +286,27 @@ package cve2_pkg;
   //////////////
 
   // Operand a selection
-  typedef enum logic[1:0] {
+  typedef enum logic[2:0] {   // added a bit to support vector extension
     OP_A_REG_A,
+    OP_A_VREG,              // Vector extension
     OP_A_FWD,
     OP_A_CURRPC,
     OP_A_IMM
   } op_a_sel_e;
 
   // Immediate a selection
-  typedef enum logic {
+  typedef enum logic [1:0] {  // added a bit to support vector extension
     IMM_A_Z,
-    IMM_A_ZERO
+    IMM_A_ZERO,
+    IMM_A_V                   // Vector extension
   } imm_a_sel_e;
 
   // Operand b selection
-  typedef enum logic {
+  typedef enum logic[1:0] {      // added a bit to support vector extension
     OP_B_REG_B,
-    OP_B_IMM
+    OP_B_VREG,                // Vector extension
+    OP_B_IMM,
+    OP_B_SLIDE                // Vector extension
   } op_b_sel_e;
 
   // Immediate b selection
@@ -256,6 +316,8 @@ package cve2_pkg;
     IMM_B_B,
     IMM_B_U,
     IMM_B_J,
+    // Vector extension - vsetivl{i} immediate
+    IMM_B_VCFG,
     IMM_B_INCR_PC,
     IMM_B_INCR_ADDR
   } imm_b_sel_e;
