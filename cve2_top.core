@@ -3,7 +3,7 @@ CAPI=2:
 # Copyright lowRISC contributors.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-name: "openhwgroup:cve2:cve2_top:0.1"
+name: "polito:cve2:cve2_top:0.1"
 description: "A single-issue 2-stage pipeline embedded class of RISC-V CPUs"
 
 filesets:
@@ -11,9 +11,9 @@ filesets:
     depend:
       - openhwgroup:cve2:cve2_pkg
       - openhwgroup:cve2:cve2_core
-      - openhwgroup:cve2:cve2_clock_gate
-      - lowrisc:prim:buf
-      - lowrisc:prim:clock_mux2
+      - "!SYNTHESIS ? (openhwgroup:cve2:cve2_clock_gate)"
+      - "!SYNTHESIS ? (lowrisc:prim:buf)"
+      - "!SYNTHESIS ? (lowrisc:prim:clock_mux2)"
       - lowrisc:prim:flop
       - lowrisc:prim:ram_1p_scr
     files:
@@ -32,6 +32,10 @@ filesets:
   files_check_tool_requirements:
     depend:
      - lowrisc:tool:check_tool_requirements
+
+  files_tsmc65:
+    depend:
+      - polito:cve2:prim-tsmc65
 
 parameters:
   RVFI:
@@ -79,6 +83,26 @@ targets:
     parameters:
       - tool_vivado ? (FPGA_XILINX=true)
 
+  asic_synthesis:
+    filesets:
+      - files_rtl
+      - files_tsmc65
+    parameters:
+      - SYNTHESIS=true
+    default_tool: design_compiler
+    toplevel:
+      - cve2_top
+    tools:
+      design_compiler:
+        script_dir: # WRT syn/build/syn-design_compiler
+          - ../../syn/scripts
+        report_dir:  # WRT syn/build/syn-design_compiler
+          - ../../syn/rpt
+        dc_script: 
+          - dc_script.tcl
+
+
+    
   lint:
     <<: *default_target
     parameters:

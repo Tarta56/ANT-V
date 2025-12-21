@@ -142,6 +142,26 @@ lint-top:
 # 	fusesoc --cores-root=. run --target=sim --run \
 # 	      --tool=verilator openhwgroup:cve2:tb_cs_registers
 
+###############
+## Synthesis ##
+###############
+
+# Current repo root
+CVE2_ROOT := $(shell git rev-parse --show-toplevel)
+
+# SYNTHESIS
+CVE2_BUILD_DIR 		:= $(CVE2_ROOT)/build
+SYN_RPT_DIR				:= $(CVE2_ROOT)/syn/rpt
+SYN_NETLIST_DIR		:= $(CVE2_ROOT)/syn/netlist
+
+
+.PHONY: syn-core
+syn-core:
+	mkdir -p $(SYN_NETLIST_DIR)
+	fusesoc --cores-root . run --build-root $(CVE2_BUILD_DIR) --target=asic_synthesis --tool=design_compiler --setup --build polito:cve2:cve2_top 2>&1 | tee buildsim.log
+	cp $(SYN_RPT_DIR)/netlist.v $(SYN_NETLIST_DIR)/netlist.v
+
+
 # Echo the parameters passed to fusesoc for the chosen CVE2_CONFIG
 .PHONY: test-cfg
 test-cfg:

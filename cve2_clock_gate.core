@@ -11,6 +11,10 @@ filesets:
     files:
       - rtl/cve2_clock_gate.sv
     file_type: systemVerilogSource
+  
+  files_synth:
+    depend:
+      - polito:cve2:prim-tsmc65
 
 parameters:
   SYNTHESIS:
@@ -21,4 +25,5 @@ parameters:
 targets:
   default:
     filesets:
-      - files_rtl
+      - "!target_asic_synthesis ? (files_rtl)"
+      - "target_asic_synthesis ? (files_synth)"

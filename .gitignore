@@ -44,3 +44,8 @@ modelsim.ini
 
 # Python Virtual Environment directory eventually created
 venv_cve2
+
+# Synthesis files
+syn/rpt
+syn/netlist
+syn/output_*
