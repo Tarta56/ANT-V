@@ -11,6 +11,7 @@
  */
 module cve2_ex_block #(
   parameter cve2_pkg::rv32m_e RV32M           = cve2_pkg::RV32MFast,
+  parameter bit RV32VX                        = 1'b0,
   parameter cve2_pkg::rv32b_e RV32B           = cve2_pkg::RV32BNone
 ) (
   input  logic                  clk_i,
@@ -20,6 +21,7 @@ module cve2_ex_block #(
   input  cve2_pkg::alu_op_e     alu_operator_i,
   input  logic [31:0]           alu_operand_a_i,
   input  logic [31:0]           alu_operand_b_i,
+  input  logic [31:0]           alu_operand_c_i,            // Vector extension  
   input  logic                  alu_instr_first_cycle_i,
 
   // Multiplier/Divider
@@ -43,6 +45,11 @@ module cve2_ex_block #(
   output logic [31:0]           branch_target_o,       // to IF
   output logic                  branch_decision_o,     // to ID
 
+  // Vector extension
+  input  logic                  vec_instr_i,
+  input  logic                  mem_op_i,
+  input  logic [2:0]            vsew_i,
+
   output logic                  ex_valid_o             // EX has valid output
 );
 
@@ -60,6 +67,11 @@ module cve2_ex_block #(
   logic [ 1:0] alu_imd_val_we;
   logic [33:0] multdiv_imd_val_d[2];
   logic [ 1:0] multdiv_imd_val_we;
+
+  // Signals for vector extensions
+  logic [31:0] alu_operand_a, alu_operand_b;
+  logic [31:0] multdiv_operand_b;
+
 
   /*
     The multdiv_i output is never selected if RV32M=RV32MNone
@@ -79,7 +91,7 @@ module cve2_ex_block #(
 
   assign alu_imd_val_q = '{imd_val_q_i[0][31:0], imd_val_q_i[1][31:0]};
 
-  assign result_ex_o  = multdiv_sel ? multdiv_result : alu_result;
+  assign result_ex_o  = multdiv_sel ? multdiv_result : (alu_operator_i == ALU_SLIDE) ? alu_operand_b_i : alu_result;
 
   // branch handling
   assign branch_decision_o  = alu_cmp_result;
@@ -89,16 +101,60 @@ module cve2_ex_block #(
 
   assign branch_target_o = alu_adder_result_ex_o;
 
+  
+  ///////////////////////
+  // Operand selection //
+  ///////////////////////
+  
+  // multdiv_result is on operand b so that I can reuse the already present negation in the ALU
+  if (RV32VX) begin : gen_vec_op_sel
+    always_comb begin
+      alu_operand_a = alu_operand_a_i;
+      alu_operand_b = alu_operand_b_i;
+      multdiv_operand_b = multdiv_operand_b_i;
+
+      case (alu_operator_i)
+        ALU_MOVE: begin
+          alu_operand_b = '0;
+        end
+        ALU_MAC: begin
+          alu_operand_a = alu_operand_c_i;
+          alu_operand_b = multdiv_result;
+        end
+        ALU_NMSAC: begin
+          alu_operand_a = alu_operand_c_i;
+          alu_operand_b = multdiv_result;
+        end
+        ALU_MADD: begin
+          alu_operand_a = alu_operand_c_i;
+          alu_operand_b = multdiv_result;
+          multdiv_operand_b = alu_operand_c_i;
+        end
+        ALU_NMSUB: begin
+          alu_operand_a = alu_operand_c_i;
+          alu_operand_b = multdiv_result;
+          multdiv_operand_b = alu_operand_c_i;
+        end
+        default: ;
+      endcase
+    end
+  end else begin : gen_no_vec_op_sel
+    assign alu_operand_a = alu_operand_a_i;
+    assign alu_operand_b = alu_operand_b_i;
+    assign multdiv_operand_b = multdiv_operand_b_i;
+  end
+
   /////////
   // ALU //
   /////////
 
   cve2_alu #(
-    .RV32B(RV32B)
+    .RV32B(RV32B),
+    .RV32VX(RV32VX)
   ) alu_i (
     .operator_i         (alu_operator_i),
-    .operand_a_i        (alu_operand_a_i),
-    .operand_b_i        (alu_operand_b_i),
+    .operand_a_i        (alu_operand_a),
+    .operand_b_i        (alu_operand_b),
     .instr_first_cycle_i(alu_instr_first_cycle_i),
     .imd_val_q_i        (alu_imd_val_q),
     .imd_val_we_o       (alu_imd_val_we),
@@ -110,6 +166,9 @@ module cve2_ex_block #(
     .adder_result_ext_o (alu_adder_result_ext),
     .result_o           (alu_result),
     .comparison_result_o(alu_cmp_result),
+    .vec_instr_i        (vec_instr_i),            // Vector extension
+    .mem_op_i           (mem_op_i),               // Vector extension
+    .vsew_i             (vsew_i),                  // Vector extension
     .is_equal_result_o  (alu_is_equal_result)
   );
 
@@ -142,30 +201,60 @@ module cve2_ex_block #(
       .multdiv_result_o  (multdiv_result)
     );
   end else if (RV32M == RV32MFast || RV32M == RV32MSingleCycle) begin : gen_multdiv_fast
-    cve2_multdiv_fast #(
-      .RV32M(RV32M)
-    ) multdiv_i (
-      .clk_i             (clk_i),
-      .rst_ni            (rst_ni),
-      .mult_en_i         (mult_en_i),
-      .div_en_i          (div_en_i),
-      .mult_sel_i        (mult_sel_i),
-      .div_sel_i         (div_sel_i),
-      .operator_i        (multdiv_operator_i),
-      .signed_mode_i     (multdiv_signed_mode_i),
-      .op_a_i            (multdiv_operand_a_i),
-      .op_b_i            (multdiv_operand_b_i),
-      .alu_operand_a_o   (multdiv_alu_operand_a),
-      .alu_operand_b_o   (multdiv_alu_operand_b),
-      .alu_adder_ext_i   (alu_adder_result_ext),
-      .alu_adder_i       (alu_adder_result_ex_o),
-      .equal_to_zero_i   (alu_is_equal_result),
-      .imd_val_q_i       (imd_val_q_i),
-      .imd_val_d_o       (multdiv_imd_val_d),
-      .imd_val_we_o      (multdiv_imd_val_we),
-      .valid_o           (multdiv_valid),
-      .multdiv_result_o  (multdiv_result)
-    );
+    if (RV32VX) begin : gen_multdiv_fast_frac
+      // TODO: for simplicity, use a different module directly, instead of unifying the two arch
+      cve2_multdiv_fast_fracturable #(
+        .RV32M(RV32M)
+      ) multdiv_i (
+        .clk_i             (clk_i),
+        .rst_ni            (rst_ni),
+        .mult_en_i         (mult_en_i),
+        .div_en_i          (div_en_i),
+        .mult_sel_i        (mult_sel_i),
+        .div_sel_i         (div_sel_i),
+        .operator_i        (multdiv_operator_i),
+        .signed_mode_i     (multdiv_signed_mode_i),
+        .op_a_i            (multdiv_operand_a_i),
+        .op_b_i            (multdiv_operand_b),
+        .alu_operand_a_o   (multdiv_alu_operand_a),
+        .alu_operand_b_o   (multdiv_alu_operand_b),
+        .alu_adder_ext_i   (alu_adder_result_ext),
+        .alu_adder_i       (alu_adder_result_ex_o),
+        .equal_to_zero_i   (alu_is_equal_result),
+        .imd_val_q_i       (imd_val_q_i),
+        .imd_val_d_o       (multdiv_imd_val_d),
+        .imd_val_we_o      (multdiv_imd_val_we),
+        .valid_o           (multdiv_valid),
+        .multdiv_result_o  (multdiv_result),
+        .vec_instr_i       (vec_instr_i),
+        .vsew_i            (vsew_i)
+      );
+    end else begin : gen_multdiv_fast_no_frac
+      cve2_multdiv_fast #(
+        .RV32M(RV32M)
+      ) multdiv_i (
+        .clk_i             (clk_i),
+        .rst_ni            (rst_ni),
+        .mult_en_i         (mult_en_i),
+        .div_en_i          (div_en_i),
+        .mult_sel_i        (mult_sel_i),
+        .div_sel_i         (div_sel_i),
+        .operator_i        (multdiv_operator_i),
+        .signed_mode_i     (multdiv_signed_mode_i),
+        .op_a_i            (multdiv_operand_a_i),
+        .op_b_i            (multdiv_operand_b_i),
+        .alu_operand_a_o   (multdiv_alu_operand_a),
+        .alu_operand_b_o   (multdiv_alu_operand_b),
+        .alu_adder_ext_i   (alu_adder_result_ext),
+        .alu_adder_i       (alu_adder_result_ex_o),
+        .equal_to_zero_i   (alu_is_equal_result),
+        .imd_val_q_i       (imd_val_q_i),
+        .imd_val_d_o       (multdiv_imd_val_d),
+        .imd_val_we_o      (multdiv_imd_val_we),
+        .valid_o           (multdiv_valid),
+        .multdiv_result_o  (multdiv_result)
+      );
+    end
   end
 
   // Multiplier/divider may require multiple cycles. The ALU output is valid in the same cycle

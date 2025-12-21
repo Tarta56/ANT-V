@@ -1,4 +1,3 @@
-// Copyright (c) 2025 Eclipse Foundation
 // Copyright lowRISC contributors.
 // Copyright 2018 ETH Zurich and University of Bologna, see also CREDITS.md.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
@@ -8,7 +7,8 @@
  * Arithmetic logic unit
  */
 module cve2_alu #(
-  parameter cve2_pkg::rv32b_e RV32B = cve2_pkg::RV32BNone
+  parameter cve2_pkg::rv32b_e RV32B = vcve2_pkg::RV32BNone,
+  parameter bit RV32VX = 1'b0
 ) (
   input  cve2_pkg::alu_op_e operator_i,
   input  logic [31:0]       operand_a_i,
@@ -28,6 +28,11 @@ module cve2_alu #(
   output logic [31:0]       adder_result_o,
   output logic [33:0]       adder_result_ext_o,
 
+  // Vector extension
+  input  logic              vec_instr_i,
+  input  logic              mem_op_i,
+  input  logic [2:0]        vsew_i,
+  
   output logic [31:0]       result_o,
   output logic              comparison_result_o,
   output logic              is_equal_result_o
@@ -52,12 +57,14 @@ module cve2_alu #(
   logic        adder_op_b_negate;
   logic [32:0] adder_in_a, adder_in_b;
   logic [31:0] adder_result;
+  logic [1:0]  adder_ew;
 
   always_comb begin
     adder_op_a_shift1 = 1'b0;
     adder_op_a_shift2 = 1'b0;
     adder_op_a_shift3 = 1'b0;
     adder_op_b_negate = 1'b0;
+    adder_ew = ( RV32VX && vec_instr_i && !mem_op_i) ? vsew_i[1:0] : 2'b10;  // default to 32-bit
     unique case (operator_i)
       // Adder OPs
       ALU_SUB,
@@ -67,7 +74,10 @@ module cve2_alu #(
       ALU_GE,   ALU_GEU,
       ALU_LT,   ALU_LTU,
       ALU_SLT,  ALU_SLTU,
-
+      
+      // Vector OPs
+      ALU_NMSAC, ALU_NMSUB,
+      
       // MinMax OPs (RV32B Ops)
       ALU_MIN,  ALU_MINU,
       ALU_MAX,  ALU_MAXU: adder_op_b_negate = 1'b1;
@@ -102,9 +112,24 @@ module cve2_alu #(
     endcase
   end
 
-  // actual adder
-  assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
+  if (RV32VX) begin : gen_frac_add
+    // Vector extension: fracturable adder to support 8-bit and 16-bit ops, will be used also for scalar instruction
+    cve2_fracturable_adder #(
+      .PIPE_WIDTH(32)
+    ) adder_inst (
+      .operand_a_i(adder_in_a),
+      .operand_b_i(adder_in_b),
+      .result_o(adder_result_ext_o),
+      .sew_i(adder_ew),
+      .is_sub_i(adder_op_b_negate)
+    );
+  end else begin : gen_no_frac_add
+    // no fractional addition support
+    // actual adder
+    assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
+  end
 
+  
   assign adder_result       = adder_result_ext_o[32:1];
 
   assign adder_result_o     = adder_result;
@@ -1330,7 +1355,12 @@ module cve2_alu #(
       ALU_ADD,  ALU_SUB,
       // RV32B
       ALU_SH1ADD, ALU_SH2ADD,
-      ALU_SH3ADD: result_o = adder_result;
+      ALU_SH3ADD,
+      // Vector operations TODO: maybe no need to use flag here??
+      ALU_MOVE,
+      ALU_MAC, ALU_NMSAC,
+      ALU_MADD, ALU_NMSUB,
+      ALU_SLIDE : result_o = adder_result;
 
       // Shift Operations
       ALU_SLL,  ALU_SRL,
