@@ -46,7 +46,7 @@ module cve2_wb #(
   output logic [31:0]              vrf_wdata_wb_o,
   // write data for vset{i}vl{i}
   input logic [31:0]               vl_wdata_i,
-  input logic                      vl_we_i
+  input logic                      vl_we_i,
 
   input logic                      lsu_resp_valid_i,
   input logic                      lsu_resp_err_i

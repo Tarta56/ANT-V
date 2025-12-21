@@ -7,7 +7,7 @@
  * Arithmetic logic unit
  */
 module cve2_alu #(
-  parameter cve2_pkg::rv32b_e RV32B = vcve2_pkg::RV32BNone,
+  parameter cve2_pkg::rv32b_e RV32B = cve2_pkg::RV32BNone,
   parameter bit RV32VX = 1'b0
 ) (
   input  cve2_pkg::alu_op_e operator_i,

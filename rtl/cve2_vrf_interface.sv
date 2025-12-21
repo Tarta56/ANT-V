@@ -68,7 +68,7 @@ module cve2_vrf_interface #(
     // CSR signals
     input cve2_pkg::vlmul_e      lmul_i,
     input cve2_pkg::vsew_e       sew_i,
-    input logic [31:0]            vl_i
+    input logic [31:0]           vl_i
 );
 
   import cve2_pkg::*;

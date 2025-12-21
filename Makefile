@@ -79,7 +79,7 @@ build-riscv-compliance:
 # 		--raminit=$(simple-system-program)
 
 compile_verilator:
-	fusesoc --cores-root . run --no-export --target=lint --tool=verilator --setup --build openhwgroup:cve2:cve2_top:0.1 2>&1 | tee buildsim.log
+	fusesoc --cores-root . run --no-export --target=lint --tool=verilator --setup --build polito:cve2:cve2_top:0.1 2>&1 | tee buildsim.log
 
 # # Arty A7 FPGA example
 # # Use the following targets (depending on your hardware):
