@@ -19,6 +19,8 @@ module cve2_top import cve2_pkg::*; #(
   parameter int unsigned MHPMCounterWidth = 40,
   parameter bit          RV32E            = 1'b0,
   parameter rv32m_e      RV32M            = RV32MFast,
+  // Enable custom vector extension support
+  parameter bit          RV32VX           = 1'b1,
   parameter bit          XInterface       = 1'b0
 ) (
   // Clock and Reset
@@ -181,6 +183,7 @@ module cve2_top import cve2_pkg::*; #(
     .RV32E            (RV32E),
     .RV32M            (RV32M),
     .RV32B            (RV32B),
+    .RV32VX           (RV32VX),
     .DbgTriggerEn     (DbgTriggerEn),
     .DbgHwBreakNum    (DbgHwBreakNum),
     .XInterface       (XInterface)

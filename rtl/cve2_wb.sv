@@ -56,8 +56,9 @@ module cve2_wb #(
 
   // 0 == RF write from ID
   // 1 == RF write from LSU
+  // 2 == RF write from VL (RV32VX only)
   logic [31:0] rf_wdata_wb_mux    [3]; // idx 2 only used for RV32VX
-  logic [1:0]  rf_wdata_wb_mux_we;
+  logic [2:0]  rf_wdata_wb_mux_we;
 
     // without writeback stage just pass through register write signals
     assign rf_waddr_wb_o         = rf_waddr_id_i;
