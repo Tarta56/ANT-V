@@ -18,6 +18,7 @@ module cve2_decoder #(
   parameter bit RV32E               = 0,
   parameter cve2_pkg::rv32m_e RV32M = cve2_pkg::RV32MFast,
   parameter cve2_pkg::rv32b_e RV32B = cve2_pkg::RV32BNone,
+  parameter bit RV32VX                      = 0,
   parameter bit               XInterface    = 1'b0
 ) (
   input  logic                 clk_i,
@@ -88,7 +89,27 @@ module cve2_decoder #(
                                                           // word or word
   output logic                     data_sign_extension_o, // sign extension for data read from
                                                       // memory
-
+  // VECTOR EXTENSION
+  // vector register file
+  output logic                  vrf_req_o,             // request to vector register file
+  output logic                  vrf_we_o,              // write enable for vector register file
+  output logic[3:0]             vrf_sel_operation_o,
+  output logic                  vrf_memory_op_o,
+  output logic                  vrf_mult_ops_o,
+  // Slide instructions
+  output logic                  vrf_slide_op_o,
+  output logic                  is_slide_up_o,
+  // immediate
+  output logic [31:0]           imm_v_type_o,          // immediate for vector instructions
+  // vector cfg setting instructions
+  output logic                  vcfg_write_o,          // write enable for vector configuration
+  output logic [31:0]           imm_vcfg_o,            // immediate for vector configuration
+  output logic                  vl_max_o,              // set vl to VLMAX
+  output logic                  vl_keep_o,             // keep current value of vl
+  // LSU
+  output logic                  unit_stride_o,         // 1 - unit strided, 0 - constant strided
+  output logic [2:0]            vmem_ops_eew_o,         // vector memory operation width
+  
   // Core-V eXtension interface (CV-X-IF)
   input  cve2_pkg::readregflags_t  x_issue_resp_register_read_i,
   input  cve2_pkg::writeregflags_t x_issue_resp_writeback_i,
@@ -138,6 +159,18 @@ module cve2_decoder #(
   assign imm_b_type_o = { {19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0 };
   assign imm_u_type_o = { instr[31:12], 12'b0 };
   assign imm_j_type_o = { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 };
+
+  // Vector immediate extraction
+  if (RV32VX) begin
+    assign imm_v_type_o = { {27{instr[19]}}, instr_rs1 };
+    assign imm_vcfg_o = {{21{1'b0}}, instr[30] & ~instr[31], instr[29:20]}; // same as they do in Vicuna
+    // Vector memory operation width
+    assign vmem_ops_eew_o = instr[14:12];
+  end else begin
+    assign imm_v_type_o = 32'b0;
+    assign imm_vcfg_o = 32'b0;
+    assign vmem_ops_eew_o = 3'b0;
+  end
 
   // immediate for CSR manipulation (zero extended)
   assign zimm_rs1_type_o = { 27'b0, instr_rs1 }; // rs1
@@ -231,6 +264,21 @@ module cve2_decoder #(
     dret_insn_o           = 1'b0;
     ecall_insn_o          = 1'b0;
     wfi_insn_o            = 1'b0;
+
+    
+    // vector extension
+    vrf_req_o             = 1'b0;
+    vrf_we_o              = 1'b0;
+    vrf_sel_operation_o   = 4'b0000;
+    vcfg_write_o          = 1'b0;
+    vl_max_o              = 1'b0;
+    vl_keep_o             = 1'b0;
+    vrf_memory_op_o       = 1'b0;
+    vrf_mult_ops_o        = 1'b0;
+    unit_stride_o         = 1'b0;
+    // slide instructions
+    vrf_slide_op_o        = 1'b0;
+    is_slide_up_o         = 1'b0;
 
     opcode                = opcode_e'(instr[6:0]);
 
@@ -636,6 +684,195 @@ module cve2_decoder #(
         end
 
       end
+      //////////////////////
+      // Vector Extension //
+      //////////////////////
+
+      OPCODE_LOAD_V: begin  // Vector Load
+        if (RV32VX) begin
+          // VRF control signals
+          vrf_req_o = 1'b1;
+          vrf_we_o = 1'b1;
+          vrf_memory_op_o = 1'b1;
+          vrf_sel_operation_o = 4'b1000;
+          rf_ren_a_o          = 1'b1;
+          case (instr[27:26])                 // only support strided mem operations
+            2'b00: unit_stride_o = 1'b1;
+            2'b10: unit_stride_o = 1'b0;
+            default: illegal_insn = 1'b1;
+          endcase
+          if (instr[27:26] == 2'b10) begin  // if not unit-strided
+            rf_ren_b_o         = 1'b1;            // read enable for offset
+            case (vmem_ops_eew_o)                 // only support strided mem operations
+              3'b000: data_type_o = 2'b10;   // lb
+              3'b101: data_type_o = 2'b01;  // lh
+              3'b110: data_type_o = 2'b00;  // lw
+              default: illegal_insn = 1'b1;
+            endcase
+          end
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
+      OPCODE_STORE_V: begin  // Vector Store
+        if (RV32VX) begin
+          // VRF control signals
+          vrf_req_o = 1'b1;
+          vrf_memory_op_o = 1'b1;
+          vrf_sel_operation_o = 4'b0100;
+          rf_ren_a_o         = 1'b1;
+          data_we_o          = 1'b1;        // write enable for data memory
+          case (instr[27:26])                 // only support strided mem operations
+            2'b00: unit_stride_o = 1'b1;
+            2'b10: unit_stride_o = 1'b0;
+            default: illegal_insn = 1'b1;
+          endcase
+          if (instr[27:26] == 2'b10) begin  // if not unit-strided
+            rf_ren_b_o         = 1'b1;            // read enable for offset
+            case (vmem_ops_eew_o)                 // only for constant-strided because in unit-strided accesses are independent on EEW
+              3'b000: data_type_o = 2'b10;   // lb
+              3'b101: data_type_o = 2'b01;  // lh
+              3'b110: data_type_o = 2'b00;  // lw
+              default: illegal_insn = 1'b1;
+            endcase
+          end
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
+      OPCODE_OP_V: begin  // Vector Operations
+        if (RV32VX) begin
+          // Configuration-Setting Instructions
+          if (instr[14:12]==3'b111) begin
+            vcfg_write_o = 1'b1;
+            if (instr[31:30]!=2'b11) begin        // AVL encoding for vsetvl and vsetvli
+              if (instr_rs1 == '0 && instr_rd != '0) begin
+                vl_max_o = 1'b1;
+              end else if (instr_rs1 == '0 && instr_rd == '0) begin
+                vl_keep_o = 1'b1;
+              end
+              if (instr[31]!= 0 && instr[31:30]!=2'b11 && instr_alu[31:25]==7'b1000000) begin
+                // Illegal instr
+                illegal_insn = 1'b1;
+              end
+              // TODO: is it not missing an illegal_insn case?
+            end
+          end
+          // Vector Arithmetic Instructions
+          else begin
+            vrf_req_o = 1'b1;
+            unique case ({instr[31:26], instr[14:12]})  // {funct6, funct3}
+
+              // Vector Integer Arithmetic Operations
+              {6'b00_0000, 3'b000}: begin    // vadd.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0000, 3'b100}: begin    // vadd.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_0000, 3'b011}: begin    // vadd.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_0010, 3'b000}: begin    // vsub.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0010, 3'b100}: begin    // vsub.vx
+              end
+              {6'b10_0101, 3'b010}: begin    // vmul.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+                multdiv_operator_o    = MD_OP_MULL;
+                multdiv_signed_mode_o = 2'b00;
+              end
+              {6'b10_0101, 3'b110}: begin    // vmul.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+                multdiv_operator_o    = MD_OP_MULL;
+                multdiv_signed_mode_o = 2'b00;
+              end
+
+              // Multiply-and-Accumulate instructions
+              {6'b10_1101, 3'b010}: begin    // vmacc.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1111;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b10_1101, 3'b110}: begin    // vmacc.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1110;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b10_1111, 3'b010}: begin    // vnmsac.vv
+              end
+              {6'b10_1111, 3'b110}: begin    // vnmsac.vx
+              end
+              {6'b10_1001, 3'b010}: begin    // vmadd.vv
+              end
+              {6'b10_1001, 3'b110}: begin    // vmadd.vx
+              end
+              {6'b10_1011, 3'b010}: begin    // vnmsub.vv
+              end
+              {6'b10_1011, 3'b110}: begin    // vnmsub.vx
+              end
+
+              // Move instructions
+              {6'b01_0111, 3'b000}: begin    // vmv.v.v/vmerge.vvm
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1001;
+              end
+              {6'b01_0111, 3'b100}: begin    // vmv.v.x/vmerge.vxm
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1000;
+              end
+              {6'b01_0111, 3'b011}: begin    // vmv.v.i/vmerge.vim
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1000;
+              end
+
+              // Slide instructions
+              {6'b00_1110, 3'b100}: begin    // vslideup.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+                vrf_slide_op_o = 1'b1;
+                is_slide_up_o = 1'b1;
+              end
+              {6'b00_1110, 3'b011}: begin    // vslideup.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+                vrf_slide_op_o = 1'b1;
+                is_slide_up_o = 1'b1;
+              end
+              {6'b00_1111, 3'b100}: begin    // vslidedown.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+                vrf_slide_op_o = 1'b1;
+                is_slide_up_o = 1'b0;
+              end
+              {6'b00_1111, 3'b011}: begin    // vslidedown.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+                vrf_slide_op_o = 1'b1;
+                is_slide_up_o = 1'b0;
+              end
+              default: begin
+                illegal_insn = 1'b1;
+              end
+          endcase
+        end
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
       default: begin
         illegal_insn = 1'b1;
       end
@@ -1161,6 +1398,259 @@ module cve2_decoder #(
         end
 
       end
+      
+      //////////////////////
+      // Vector Extension //
+      //////////////////////
+
+      OPCODE_LOAD_V: begin
+        if (RV32VX) begin
+          alu_op_b_mux_sel_o = OP_B_REG_B;
+          alu_op_a_mux_sel_o = OP_A_FWD;
+          alu_operator_o = ALU_ADD;
+        end
+      end
+
+      OPCODE_STORE_V: begin
+        if (RV32VX) begin
+          alu_op_b_mux_sel_o = OP_B_REG_B;
+          alu_op_a_mux_sel_o = OP_A_FWD;
+          alu_operator_o = ALU_ADD;
+        end
+      end
+
+      OPCODE_OP_V: begin
+        if (RV32VX) begin
+          // Configuration-Setting Instructions
+          if (instr_alu[14:12]==3'b111) begin
+            alu_op_a_mux_sel_o = OP_A_REG_A;
+            alu_op_b_mux_sel_o = OP_B_IMM;
+            imm_b_mux_sel_o    = IMM_B_VCFG;
+            if (instr_alu[31]==1'b0) begin
+              // vsetvli
+              alu_op_a_mux_sel_o = OP_A_REG_A;
+              alu_op_b_mux_sel_o = OP_B_IMM;
+              imm_b_mux_sel_o    = IMM_B_VCFG;
+            end else if (instr_alu[31:30]==2'b11) begin
+              // vsetivli
+              alu_op_a_mux_sel_o = OP_A_IMM;
+              //alu_op_b_mux_sel_o = OP_B_IMM;
+              imm_a_mux_sel_o    = IMM_A_Z;
+              //imm_b_mux_sel_o    = IMM_B_VCFG;
+            end else begin //if (instr_alu[31:25]==7'b1000000) begin
+              // Remove this if, only because the illegal_instr flag is on
+              // vsetvl
+              alu_op_a_mux_sel_o = OP_A_REG_A;
+              alu_op_b_mux_sel_o = OP_B_REG_B;
+            end
+          end
+          // Vector Arithmetic Instructions
+          else begin
+            // Default
+            alu_op_a_mux_sel_o = OP_A_VREG;
+            alu_op_b_mux_sel_o = OP_B_VREG;
+            unique case ({instr_alu[31:26], instr_alu[14:12]})  // {funct6, funct3}
+              // Vector Integer Arithmetic Operations
+              // ADD-SUB
+              {6'b00_0000, 3'b000}: begin    // vadd.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_ADD;
+              end
+              {6'b00_0000, 3'b100}: begin    // vadd.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_ADD;
+              end
+              {6'b00_0000, 3'b011}: begin    // vadd.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_ADD;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              {6'b00_0010, 3'b000}: begin    // vsub.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SUB;
+              end
+              {6'b00_0010, 3'b100}: begin    // vsub.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SUB;
+              end
+              // LOGICAL
+              {6'b00_1001, 3'b000}: begin    // vand.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_AND;
+              end
+              {6'b00_1001, 3'b100}: begin    // vand.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_AND;
+              end
+              {6'b00_1001, 3'b011}: begin    // vand.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_AND;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              {6'b00_1010, 3'b000}: begin    // vor.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_OR;
+              end
+              {6'b00_1010, 3'b100}: begin    // vor.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_OR;
+              end
+              {6'b00_1010, 3'b011}: begin    // vor.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_OR;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              {6'b00_1011, 3'b000}: begin    // vxor.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_XOR;
+              end
+              {6'b00_1011, 3'b100}: begin    // vxor.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_XOR;
+              end
+              {6'b00_1011, 3'b011}: begin    // vxor.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_XOR;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              // MAX
+              {6'b00_0100, 3'b000}: begin    // vminu.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MINU;
+              end
+              {6'b00_0100, 3'b100}: begin    // vminu.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MINU;
+              end
+              {6'b00_0101, 3'b000}: begin    // vmin.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MIN;
+              end
+              {6'b00_0101, 3'b100}: begin    // vmin.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MIN;
+              end
+              {6'b00_0110, 3'b000}: begin    // vmaxu.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MAXU;
+              end
+              {6'b00_0110, 3'b100}: begin    // vmaxu.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MAXU;
+              end
+              {6'b00_0111, 3'b000}: begin    // vmax.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MAX;
+              end
+              {6'b00_0111, 3'b100}: begin    // vmax.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o     = ALU_MAX;
+              end
+              // MUL
+              {6'b10_0101, 3'b010}: begin    // vmul.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_ADD;
+                mult_sel_o     = (RV32M == RV32MNone) ? 1'b0 : 1'b1;
+              end
+              {6'b10_0101, 3'b110}: begin    // vmul.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_ADD;
+                mult_sel_o     = (RV32M == RV32MNone) ? 1'b0 : 1'b1;
+              end
+
+              // Multiply-and-Accumulate instructions
+              {6'b10_1101, 3'b010}: begin    // vmacc.vv
+                //alu_op_a_mux_sel_o = OP_A_VREG;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_MAC;
+              end
+              {6'b10_1101, 3'b110}: begin    // vmacc.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_MAC;
+              end
+              {6'b10_1111, 3'b010}: begin    // vnmsac.vv
+              end
+              {6'b10_1111, 3'b110}: begin    // vnmsac.vx
+              end
+              {6'b10_1001, 3'b010}: begin    // vmadd.vv
+              end
+              {6'b10_1001, 3'b110}: begin    // vmadd.vx
+              end
+              {6'b10_1011, 3'b010}: begin    // vnmsub.vv
+              end
+              {6'b10_1011, 3'b110}: begin    // vnmsub.vx
+              end
+
+              {6'b01_0111, 3'b000}: begin    // vmv.v.v/vmerge.vvm
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SLIDE;
+                imm_a_mux_sel_o    = IMM_A_ZERO;
+              end
+              {6'b01_0111, 3'b100}: begin    // vmv.v.x/vmerge.vxm
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                alu_operator_o = ALU_MOVE;
+              end
+              {6'b01_0111, 3'b011}: begin    // vmv.v.i/vmerge.vim
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                imm_a_mux_sel_o    = IMM_A_V;
+                alu_operator_o = ALU_MOVE;
+              end
+
+              // Slide instructions
+              {6'b00_1110, 3'b100}: begin    // vslideup.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SLIDE;
+              end
+              {6'b00_1110, 3'b011}: begin    // vslideup.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SLIDE;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              {6'b00_1111, 3'b100}: begin    // vslidedown.vx
+                alu_op_a_mux_sel_o = OP_A_REG_A;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SLIDE;
+              end
+              {6'b00_1111, 3'b011}: begin    // vslidedown.vi
+                alu_op_a_mux_sel_o = OP_A_IMM;
+                //alu_op_b_mux_sel_o = OP_B_VREG;
+                alu_operator_o = ALU_SLIDE;
+                imm_a_mux_sel_o    = IMM_A_Z;
+              end
+              default: ;
+            endcase
+          end
+        end
+      end
+
       default: ;
     endcase
   end

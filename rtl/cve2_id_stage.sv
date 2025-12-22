@@ -22,6 +22,7 @@ module cve2_id_stage #(
   parameter bit               RV32E           = 0,
   parameter cve2_pkg::rv32m_e RV32M           = cve2_pkg::RV32MFast,
   parameter cve2_pkg::rv32b_e RV32B           = cve2_pkg::RV32BNone,
+  parameter bit               RV32VX          = 1'b0,
   parameter bit               XInterface      = 1'b0
 ) (
   input  logic                      clk_i,
@@ -64,6 +65,7 @@ module cve2_id_stage #(
   output cve2_pkg::alu_op_e         alu_operator_ex_o,
   output logic [31:0]               alu_operand_a_ex_o,
   output logic [31:0]               alu_operand_b_ex_o,
+  output logic [31:0]               alu_operand_c_ex_o, // Vector extension
 
   // Multicycle Operation Stage Register
   input  logic [1:0]                imd_val_we_ex_i,
@@ -123,6 +125,35 @@ module cve2_id_stage #(
   input  logic                      x_result_valid_i,
   output logic                      x_result_ready_o,
   input   cve2_pkg::x_result_t      x_result_i,
+
+  // VECTOR EXTENSION
+  // Vector register file
+  output logic                      vrf_req_o,
+  output logic                      vrf_we_id_o,
+  input  logic [31:0]               vrf_rdata_b_i,
+  input  logic [31:0]               vrf_rdata_a_i,
+  input  logic [31:0]               vrf_rdata_c_i,
+  output logic [31:0]               vrf_wdata_o,
+  output logic [3:0]                vrf_sel_operation_o,
+  output logic                      vrf_memory_op_o,
+  output logic                      vrf_mult_ops_o,
+  input  logic                      vector_done_i,
+  // Slide instructions
+  output logic                      vrf_slide_op_o,
+  output logic                      is_slide_up_o,
+  // Vector cfg
+  output logic                      vcfg_write_o,
+  output logic                      vl_max_o,
+  output logic                      vl_keep_o,
+  input  cve2_pkg::vsew_e           vsew_i,
+  // Vector memory operations
+  output logic                      unit_stride_o,
+  output logic [2:0]                vmem_ops_eew_o,
+  // Vectore slide instructions
+  input  logic                      slide_addr_req_i,
+  input  logic [31:0]               slide_base_addr_i,
+  // CSR related invalid instruction
+  input  logic                      illegal_vec_csr_insn_i,
 
   // Interrupt signals
   input  logic                      csr_mstatus_mie_i,
@@ -232,6 +263,10 @@ module cve2_id_stage #(
 
   logic [31:0] rf_rdata_a_fwd;
   logic [31:0] rf_rdata_b_fwd;
+  
+  // Vslide internal signals
+  logic [31:0] vslide_op_a;
+  logic [31:0] vslided_op_a;
 
   // ALU Control
   alu_op_e     alu_operator;
@@ -268,6 +303,13 @@ module cve2_id_stage #(
   // CV-X-IF
   logic stall_coproc;
 
+
+  // [VEC] Vector extension
+  logic                   stall_vec;
+  logic [31:0]            imm_v_type;
+  // vcfg
+  logic [31:0]            imm_vcfg;
+
   ///////////////
   // ID-EX FSM //
   ///////////////
@@ -287,8 +329,7 @@ module cve2_id_stage #(
   if (XInterface) begin: gen_xif
 
     logic coproc_done;
-    assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : (illegal_insn_dec ? coproc_done : ex_valid_i);
-
+    
     assign coproc_done = (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.writeback) | (x_result_valid_i & x_result_i.we);
 
     // Issue Interface
@@ -312,10 +353,16 @@ module cve2_id_stage #(
 
     // Result Interface
     assign x_result_ready_o = 1'b1;
+    if (RV32VX) begin
+      assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.accept)) | (vrf_req_o && illegal_vec_csr_insn_i);
+      assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : (illegal_insn_dec ? coproc_done : (vrf_req_o ? vector_done_i : ex_valid_i));
 
-    assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.accept));
+    end else begin
+      assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.accept));
+      assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : (illegal_insn_dec ? coproc_done : ex_valid_i);
+
+    end
   end
-
   else begin: no_gen_xif
     logic          unused_x_issue_ready;
     x_issue_resp_t unused_x_issue_resp;
@@ -323,7 +370,6 @@ module cve2_id_stage #(
     x_result_t     unused_x_result;
 
 
-    assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : ex_valid_i;
 
     // Issue Interface
     assign x_issue_valid_o      = 1'b0;
@@ -342,8 +388,13 @@ module cve2_id_stage #(
     assign x_result_ready_o      = 1'b0;
     assign unused_x_result_valid = x_result_valid_i;
     assign unused_x_result       = x_result_i;
-
-    assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | illegal_insn_dec);
+    if (RV32VX) begin
+      assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | illegal_insn_dec) | (vrf_req_o && illegal_vec_csr_insn_i);
+      assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : (vrf_req_o ? vector_done_i : ex_valid_i);
+    end else begin
+      assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | illegal_insn_dec);  
+      assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : ex_valid_i;
+    end
   end
 
   /////////////
@@ -352,23 +403,80 @@ module cve2_id_stage #(
 
   // Misaligned loads/stores result in two aligned loads/stores, compute second address
   assign alu_op_a_mux_sel = lsu_addr_incr_req_i ? OP_A_FWD        : alu_op_a_mux_sel_dec;
-  assign alu_op_b_mux_sel = lsu_addr_incr_req_i ? OP_B_IMM        : alu_op_b_mux_sel_dec;
+  assign alu_op_b_mux_sel = lsu_addr_incr_req_i ? OP_B_IMM          : 
+                            slide_addr_req_i    ? OP_B_SLIDE        : alu_op_b_mux_sel_dec;
   assign imm_b_mux_sel    = lsu_addr_incr_req_i ? IMM_B_INCR_ADDR : imm_b_mux_sel_dec;
+
+  
+  // VEC Slide op
+  // ------------
+  if (RV32VX) begin
+    assign vslide_op_a = (alu_op_a_mux_sel == OP_A_IMM) ? imm_a : rf_rdata_a_fwd;
+    assign vslided_op_a = vslide_op_a << vsew_i;
+  end else begin
+    assign vslide_op_a = '0;
+    assign vslided_op_a = '0;
+  end
 
   ///////////////////
   // Operand MUXES //
   ///////////////////
 
-  // Main ALU immediate MUX for Operand A
-  assign imm_a = (imm_a_mux_sel == IMM_A_Z) ? zimm_rs1_type : '0;
 
-  // Main ALU MUX for Operand A
+  // Main ALU immediate MUX for Operand A - Modified to include vector immediate
+  always_comb begin : immediate_a_mux
+    case (imm_a_mux_sel)
+      IMM_A_Z:         imm_a = zimm_rs1_type;
+      //IMM_A_ZERO:      imm_a = '0;
+      IMM_A_V:         imm_a = imm_v_type;
+      default:         imm_a = '0;
+    endcase
+  end
+
+ // Main ALU MUX for Operand A
+  // it has been modified to correctly handle immediate and scalar values when SEW<32 for vector instructions
   always_comb begin : alu_operand_a_mux
     unique case (alu_op_a_mux_sel)
-      OP_A_REG_A:  alu_operand_a = rf_rdata_a_fwd;
-      OP_A_FWD:    alu_operand_a = lsu_addr_last_i;
-      OP_A_CURRPC: alu_operand_a = pc_id_i;
-      OP_A_IMM:    alu_operand_a = imm_a;
+
+      OP_A_REG_A: begin
+        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+          case (vsew_i)
+            VSEW_8:   alu_operand_a = {rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0]};
+            VSEW_16:  alu_operand_a = {rf_rdata_a_fwd[15:0], rf_rdata_a_fwd[15:0]};
+            //VSEW_32:  alu_operand_a = rf_rdata_a_fwd;
+            default:  alu_operand_a = rf_rdata_a_fwd;
+          endcase
+        end else begin
+          alu_operand_a = slide_addr_req_i ? vslided_op_a : rf_rdata_a_fwd; // Support for vector slide immediate
+        end     
+      end   
+
+      OP_A_VREG:    alu_operand_a = vrf_rdata_a_i;     // [VEC] Vector extension
+      OP_A_FWD:     alu_operand_a = lsu_addr_last_i;
+      OP_A_CURRPC:  alu_operand_a = pc_id_i;
+
+      OP_A_IMM: begin
+        alu_operand_a = imm_a;
+        if (RV32VX &&  slide_addr_req_i) begin
+          alu_operand_a = vslided_op_a;   // Support for vector slide immediate
+        end else if (RV32VX && !vrf_memory_op_o  && vrf_req_o) begin
+          case (vsew_i)
+            VSEW_8:   alu_operand_a = {imm_a[7:0], imm_a[7:0], imm_a[7:0], imm_a[7:0]};
+            VSEW_16:  alu_operand_a = {imm_a[15:0], imm_a[15:0]};
+            default:  alu_operand_a = imm_a;
+          endcase
+        end
+        //if (vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+        //  case (vsew_i)
+        //    VSEW_8:   alu_operand_a = {imm_a[7:0], imm_a[7:0], imm_a[7:0], imm_a[7:0]};
+        //    VSEW_16:  alu_operand_a = {imm_a[15:0], imm_a[15:0]};
+        //    //VSEW_32:  alu_operand_a = imm_a;
+        //    default:  alu_operand_a = imm_a;
+        //  endcase
+        //end else begin
+        //  alu_operand_a = slide_addr_req_i ? vslided_op_a : imm_a;   // Support for vector slide immediate
+        //end     
+      end
       default:     alu_operand_a = pc_id_i;
     endcase
   end
@@ -386,6 +494,8 @@ module cve2_id_stage #(
       IMM_B_J:         imm_b = imm_j_type;
       IMM_B_INCR_PC:   imm_b = instr_is_compressed_i ? 32'h2 : 32'h4;
       IMM_B_INCR_ADDR: imm_b = 32'h4;
+      // [VEC] Vector extension
+      IMM_B_VCFG:      imm_b = imm_vcfg;
       default:         imm_b = 32'h4;
     endcase
   end
@@ -398,8 +508,51 @@ module cve2_id_stage #(
       IMM_B_INCR_PC,
       IMM_B_INCR_ADDR})
 
-  // ALU MUX for Operand B
-  assign alu_operand_b = (alu_op_b_mux_sel == OP_B_IMM) ? imm_b : rf_rdata_b_fwd;
+  // ALU MUX for Operand B - Modified to include vector register
+  // it has been modified to correctly handle immediate and scalar values when SEW<32 for vector instructions
+  always_comb begin : alu_operand_b_mux
+    unique case (alu_op_b_mux_sel)
+
+      OP_B_REG_B:  begin
+        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+          case (vsew_i)
+            VSEW_8:   alu_operand_b = {rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0]};
+            VSEW_16:  alu_operand_b = {rf_rdata_b_fwd[15:0], rf_rdata_b_fwd[15:0]};
+            //VSEW_32:  alu_operand_b = rf_rdata_b_fwd;
+            default:  alu_operand_b = rf_rdata_b_fwd;
+          endcase
+        end else begin
+          alu_operand_b = rf_rdata_b_fwd;
+        end
+      end
+
+      OP_B_VREG:   alu_operand_b = vrf_rdata_b_i;     // [VEC] Vector extension
+
+      OP_B_IMM:    begin
+        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+          case (vsew_i)
+            VSEW_8:   alu_operand_b = {imm_b[7:0], imm_b[7:0], imm_b[7:0], imm_b[7:0]};
+            VSEW_16:  alu_operand_b = {imm_b[15:0], imm_b[15:0]};
+            //VSEW_32:  alu_operand_b = imm_b;
+            default:  alu_operand_b = imm_b;
+          endcase
+        end else begin
+          alu_operand_b = imm_b;
+        end
+      end
+
+      OP_B_SLIDE:  alu_operand_b = slide_base_addr_i;
+      default:     alu_operand_b = rf_rdata_b_fwd;
+    endcase
+  end
+
+  // Vector ALU MUX for Operand C - now it can take just one value
+  assign alu_operand_c_ex_o = (RV32VX) ? vrf_rdata_c_i : 32'h0;
+  // MUL/DIV MUX for Operand A
+  assign multdiv_operand_a_ex_o = (vrf_req_o && RV32VX) ? alu_operand_a : rf_rdata_a_fwd;
+  // MUL/DIV MUX for Operand B
+  assign multdiv_operand_b_ex_o = (vrf_req_o && RV32VX) ? alu_operand_b : rf_rdata_b_fwd;
+
 
   /////////////////////////////////////////
   // Multicycle Operation Stage Register //
@@ -442,6 +595,7 @@ module cve2_id_stage #(
     .RV32E          (RV32E),
     .RV32M          (RV32M),
     .RV32B          (RV32B),
+    .RV32VX         (RV32VX),
     .XInterface     (XInterface)
   ) decoder_i (
     .clk_i (clk_i),
@@ -510,6 +664,26 @@ module cve2_id_stage #(
     // Core-V eXtension Interface (CV-X-IF)
     .x_issue_resp_register_read_i(x_issue_resp_i.register_read),
     .x_issue_resp_writeback_i(x_issue_resp_i.writeback),
+    
+    // VECTOR EXTENSION
+    // vector register file
+    .vrf_req_o(vrf_req_o),  // used both for VRF and to signal vector instructions since all of those who needs to stall uses VRF
+    .vrf_we_o(vrf_we_id_o),
+    .vrf_sel_operation_o(vrf_sel_operation_o),
+    .vrf_memory_op_o(vrf_memory_op_o),
+    .vrf_mult_ops_o(vrf_mult_ops_o),
+    .vrf_slide_op_o(vrf_slide_op_o),
+    .is_slide_up_o(is_slide_up_o),
+    // vector immediates
+    .imm_v_type_o(imm_v_type),
+    // vector cfg setting instructions
+    .vcfg_write_o(vcfg_write_o),        // write enable for vector configuration
+    .imm_vcfg_o(imm_vcfg),              // immediate for vector configuration
+    .vl_max_o(vl_max_o),                // set vl to VLMAX
+    .vl_keep_o(vl_keep_o),              // keep current value of vl
+    // LSU
+    .unit_stride_o(unit_stride_o),
+    .vmem_ops_eew_o(vmem_ops_eew_o),     // element width for vector memory operations
 
     // jump/branches
     .jump_in_dec_o  (jump_in_dec),
@@ -658,8 +832,8 @@ module cve2_id_stage #(
 
   assign multdiv_operator_ex_o       = multdiv_operator;
   assign multdiv_signed_mode_ex_o    = multdiv_signed_mode;
-  assign multdiv_operand_a_ex_o      = rf_rdata_a_fwd;
-  assign multdiv_operand_b_ex_o      = rf_rdata_b_fwd;
+  //assign multdiv_operand_a_ex_o      = rf_rdata_a_fwd;
+  //assign multdiv_operand_b_ex_o      = rf_rdata_b_fwd;
 
   ////////////////////////
   // Branch set control //
@@ -722,6 +896,8 @@ module cve2_id_stage #(
     branch_set_raw_d        = 1'b0;
     jump_set_raw            = 1'b0;
     perf_branch_o           = 1'b0;
+    // [VEC]
+    stall_vec               = 1'b0;
 
     if (instr_executing_spec) begin
       unique case (id_fsm_q)
@@ -733,7 +909,7 @@ module cve2_id_stage #(
                 id_fsm_d    = MULTI_CYCLE;
               end
             end
-            multdiv_en_dec: begin
+            multdiv_en_dec & !vrf_req_o: begin
               // MUL or DIV operation
               if (~ex_valid_i) begin
                 // When single-cycle multiply is configured mul can finish in the first cycle so
@@ -765,6 +941,11 @@ module cve2_id_stage #(
               stall_alu     = 1'b1;
               id_fsm_d      = MULTI_CYCLE;
               rf_we_raw     = 1'b0;
+            end
+            // [VEC] All vector operations take more than one cycle
+            vrf_req_o & RV32VX: begin
+              stall_vec     = 1'b1 & RV32VX;
+              id_fsm_d      = MULTI_CYCLE;
             end
             illegal_insn_dec: begin
 
@@ -808,6 +989,7 @@ module cve2_id_stage #(
             stall_branch    = branch_in_dec;
             stall_jump      = jump_in_dec;
             stall_coproc    = XInterface & illegal_insn_dec;
+            stall_vec       = RV32VX & vrf_req_o;
           end
         end
 
@@ -827,7 +1009,7 @@ module cve2_id_stage #(
   // Stall ID/EX stage for reason that relates to instruction in ID/EX, update assertion below if
   // modifying this.
   assign stall_id = stall_mem | stall_multdiv | stall_jump | stall_branch |
-                      stall_alu | (XInterface & stall_coproc);
+                      stall_alu | (XInterface & stall_coproc) | (RV32VX & stall_vec);
 
   // Generally illegal instructions have no reason to stall, however they must still stall waiting
   // for outstanding memory requests so exceptions related to them take priority over the illegal
