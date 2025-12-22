@@ -10,7 +10,7 @@
 // Otherwise, only global waivers are applied, but not file-specific waivers.
 
 `verilator_config
-lint_off -rule PINCONNECTEMPTY
+//lint_off -rule PINCONNECTEMPTY
 
 // We have some boolean top-level parameters in e.g. cve2_core_tracing.sv.
 // When building with fusesoc, these get set with defines like
@@ -73,3 +73,10 @@ lint_off -rule UNUSED -file "*/rtl/cve2_top_tracing.sv" -match "*RndCnstLfsrPerm
 lint_off -rule UNOPTFLAT -file "*/rtl/cve2_core.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: 'cve2_top.u_cve2_core.irqs'"
 lint_off -rule UNUSED -file "*/rtl/cve2_wb.sv" -match "Signal is not used: 'clk_i'*"
 lint_off -rule UNUSED -file "*/rtl/cve2_wb.sv" -match "Signal is not used: 'rst_ni'*"
+
+
+// CSR width
+// Due to RVFI
+lint_off -rule WIDTH -file "*/rtl/cve2_cs_registers.sv"
+lint_off -rule WIDTH -file "*/rtl/cve2_core.sv"
+

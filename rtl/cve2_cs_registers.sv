@@ -1448,7 +1448,7 @@ import cve2_pkg::*;
 
 `ifdef RVFI
     logic [63:0] mstatus_extended_read, mie_extended_read, mip_extended_read, mcause_extended_read;
-    struct {
+    struct packed {
       logic clk;
       logic reset_n;
     } clknrst_if;
@@ -1456,7 +1456,7 @@ import cve2_pkg::*;
     assign clknrst_if.clk = clk_i;
     assign clknrst_if.reset_n = rst_ni;
 
-    struct {
+    struct packed {
       logic [63:0]   rvfi_named_csr_rmask;
       logic [63:0]   rvfi_named_csr_wmask;
       logic [63:0]   rvfi_named_csr_rdata;

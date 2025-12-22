@@ -13,6 +13,7 @@ filesets:
     files:
       - rtl/cve2_fracturable_adder.sv
       - rtl/cve2_multdiv_fast_fracturable.sv
+      - rtl/cve2_cs_registers_vec.sv
       - rtl/cve2_vrf_interface.sv
       - rtl/cve2_agu.sv
       - rtl/cve2_lsu_interface.sv

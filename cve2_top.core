@@ -11,6 +11,7 @@ filesets:
     depend:
       - openhwgroup:cve2:cve2_pkg
       - openhwgroup:cve2:cve2_core
+      - polito:cve2:cve2_vector:0.1
       - "!SYNTHESIS ? (openhwgroup:cve2:cve2_clock_gate)"
       - "!SYNTHESIS ? (lowrisc:prim:buf)"
       - "!SYNTHESIS ? (lowrisc:prim:clock_mux2)"
@@ -69,7 +70,7 @@ parameters:
 
   RV32M:
     datatype: str
-    default: cve2_pkg::RV32MFast
+    default: cve2_pkg::RV32MSingleCycle
     paramtype: vlogdefine
     description: "RV32M implementation parameter enum. See the cve2_pkg::rv32m_e enum in cve2_pkg.sv for permitted values."
 
@@ -117,13 +118,13 @@ targets:
       verilator:
         mode: lint-only
         verilator_options:
-          # - "-Wall"
+          - "-Wall"
           # RAM primitives wider than 64bit (required for ECC) fail to build in
           # Verilator without increasing the unroll count (see Verilator#1266)
           - "--unroll-count 72"
-          - "-Wno-COMBDLY"
-          - "-Wno-WIDTHEXPAND"
-          - "-Wno-WIDTHTRUNC"
+          #- "-Wno-COMBDLY"
+          #- "-Wno-WIDTH"
+          #- "-Wno-WIDTH"
 
   format:
     filesets:

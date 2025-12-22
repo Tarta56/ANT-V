@@ -22,6 +22,7 @@ module cve2_core import cve2_pkg::*; #(
   parameter bit          RV32E             = 1'b0,
   parameter rv32m_e      RV32M             = RV32MFast,
   parameter rv32b_e      RV32B             = RV32BNone,
+  parameter bit          RV32VX            = 1'b0,
   parameter bit          DbgTriggerEn      = 1'b0,
   parameter int unsigned DbgHwBreakNum     = 1,
   parameter bit          XInterface        = 1'b0
@@ -195,6 +196,7 @@ module cve2_core import cve2_pkg::*; #(
   alu_op_e     alu_operator_ex;
   logic [31:0] alu_operand_a_ex;
   logic [31:0] alu_operand_b_ex;
+  logic [31:0] alu_operand_c_ex; // vector extension only (for now)
 
   logic [31:0] alu_adder_result_ex;    // Used to forward computed address to LSU
   logic [31:0] result_ex;
@@ -208,6 +210,86 @@ module cve2_core import cve2_pkg::*; #(
   logic [1:0]  multdiv_signed_mode_ex;
   logic [31:0] multdiv_operand_a_ex;
   logic [31:0] multdiv_operand_b_ex;
+
+  // VRF Ctrl signals
+  //-----------------
+  // VRF if <--> ID stage
+  logic vrf_req; // Request signal for the vector register file
+  logic [31:0] vrf_rdata_a; // First read port of vector register file
+  logic [31:0] vrf_rdata_b; // Second read port of vector register file
+  logic [31:0] vrf_rdata_c; // Third read port of vector register file
+  logic [3:0] vrf_sel_operation; // Number of operands needed for current vector operation
+  logic vrf_memory_op; // Signal indicating that the vector operation is a memory operation
+  logic vrf_mult_ops; // Signal indicating that the VRF memory accesses will be interleaved
+  logic vector_done; // Signal indicating that the vector operation is done
+  vsew_e vrf_vsew;
+  vlmul_e vrf_vlmul;
+  // vrf if <--> agu signals
+  logic agu_load;
+  logic agu_get_rs1;
+  logic agu_get_rs2;
+  logic agu_get_rd;
+  logic agu_incr;
+  logic [31:0] agu_addr;
+
+  // VRF if <--> LSU if
+  logic vrf_lsu_gnt;
+  logic lsu_if_load_addr;
+
+  // VRF <--> DMEM
+  logic vrf_data_gnt;
+  logic vrf_data_rvalid;
+  logic [31:0] vrf_data_rdata;
+  logic vrf_data_err;
+  logic vrf_data_req;
+  logic vrf_data_we;
+  logic [3:0] vrf_data_be;
+  logic [31:0] vrf_data_wdata;
+  logic vrf_lsu_req;
+
+
+  // Slide ctrl signals
+  logic vrf_slide_op; // Vector operation is a slide operation
+  logic is_slide_up; // slide operation is up
+  
+  // LSU <- ID
+  logic unit_stride;
+  // LSU <--> LSU if
+  logic [3:0]  lsu_vec_be;
+  logic [31:0] lsu_if_addr;
+  logic [31:0] lsu_if_wdata;
+  logic lsu_if_req;
+  //logic en_lsu_rvalid; // unused
+
+  // LSU <--> DMem Arbiter
+  logic lsu_data_req;
+  logic lsu_data_we;
+  logic [3:0] lsu_data_be;
+  logic [31:0] lsu_data_addr;
+  logic [31:0] lsu_data_wdata;
+  logic lsu_data_gnt;
+  logic lsu_data_rvalid;
+  logic [31:0] lsu_data_rdata;
+  logic lsu_data_err;
+
+
+
+  // Vector WB <--> ID
+  logic vrf_we_id;
+  logic [31:0] vrf_wdata_id;
+  logic vcfg_write;
+  //logic vrf_we_wb;
+  logic [31:0] vrf_wdata_wb;
+
+  // ID <--> Vector CSRS
+  logic vl_keep;
+  vsew_e vsew_q;
+  //vlmul_e vlmul_q;
+  logic [31:0] vl_q, vl_d;
+  logic illegal_vec_csr_insn;
+  // EEW/EMUL
+  logic [2:0] vmem_ops_eew;
+  
 
   // CSR control
   logic        csr_access;
@@ -377,6 +459,7 @@ module cve2_core import cve2_pkg::*; #(
     .RV32E          (RV32E),
     .RV32M          (RV32M),
     .RV32B          (RV32B),
+    .RV32VX         (RV32VX),
     .XInterface     (XInterface)
   ) id_stage_i (
     .clk_i (clk_i),
@@ -420,6 +503,7 @@ module cve2_core import cve2_pkg::*; #(
     .alu_operator_ex_o (alu_operator_ex),
     .alu_operand_a_ex_o(alu_operand_a_ex),
     .alu_operand_b_ex_o(alu_operand_b_ex),
+    .alu_operand_c_ex_o (alu_operand_c_ex), // vector extension only (for now)
 
     .imd_val_q_ex_o (imd_val_q_ex),
     .imd_val_d_ex_i (imd_val_d_ex),
@@ -480,6 +564,35 @@ module cve2_core import cve2_pkg::*; #(
     .x_result_valid_i(x_result_valid_i),
     .x_result_ready_o(x_result_ready_o),
     .x_result_i(x_result_i),
+    
+    // VECTOR EXTENSION
+    // Vector register file
+    .vrf_req_o(vrf_req),
+    .vrf_we_id_o(vrf_we_id),
+    .vrf_rdata_a_i(vrf_rdata_a),
+    .vrf_rdata_b_i(vrf_rdata_b),
+    .vrf_rdata_c_i(vrf_rdata_c),
+    .vrf_wdata_o(vrf_wdata_id),
+    .vrf_sel_operation_o(vrf_sel_operation),
+    .vrf_memory_op_o(vrf_memory_op),
+    .vrf_mult_ops_o(vrf_mult_ops),
+    .vector_done_i(vector_done),
+    // Slide instructions
+    .vrf_slide_op_o(vrf_slide_op),
+    .is_slide_up_o(is_slide_up),
+    // vcfg
+    .vcfg_write_o(vcfg_write),
+    .vl_max_o(),//(vl_max),
+    .vl_keep_o(vl_keep),
+    .vsew_i(vsew_q),
+    // LSU
+    .unit_stride_o(unit_stride),
+    .vmem_ops_eew_o(vmem_ops_eew),
+    // Slide
+    .slide_addr_req_i(agu_load && vrf_slide_op),
+    .slide_base_addr_i(agu_addr),
+    // CSR exceptions
+    .illegal_vec_csr_insn_i(illegal_vec_csr_insn),
 
     // Interrupt Signals
     .csr_mstatus_mie_i(csr_mstatus_mie),
@@ -530,6 +643,7 @@ module cve2_core import cve2_pkg::*; #(
 
   cve2_ex_block #(
     .RV32M          (RV32M),
+    .RV32VX         (RV32VX),
     .RV32B          (RV32B)
   ) ex_block_i (
     .clk_i (clk_i),
@@ -539,6 +653,7 @@ module cve2_core import cve2_pkg::*; #(
     .alu_operator_i         (alu_operator_ex),
     .alu_operand_a_i        (alu_operand_a_ex),
     .alu_operand_b_i        (alu_operand_b_ex),
+    .alu_operand_c_i        (alu_operand_c_ex), // vector extension only (for now)
     .alu_instr_first_cycle_i(instr_first_cycle_id),
 
     // Multipler/Divider signal from ID stage
@@ -555,6 +670,11 @@ module cve2_core import cve2_pkg::*; #(
     .imd_val_we_o(imd_val_we_ex),
     .imd_val_d_o (imd_val_d_ex),
     .imd_val_q_i (imd_val_q_ex),
+
+    // Vector extension
+    .vec_instr_i(vrf_req),
+    .mem_op_i(vrf_memory_op),
+    .vsew_i(vsew_q),
 
     // Outputs
     .alu_adder_result_ex_o(alu_adder_result_ex),  // to LSU
@@ -573,34 +693,36 @@ module cve2_core import cve2_pkg::*; #(
   assign data_req_o   = data_req_out & ~pmp_req_err[PMP_D];
   assign lsu_resp_err = lsu_load_err | lsu_store_err;
 
+  // TODO: change signal names here
+  // Arbitration with VRF interface
   cve2_load_store_unit load_store_unit_i (
     .clk_i (clk_i),
     .rst_ni(rst_ni),
 
     // data interface
-    .data_req_o    (data_req_out),
-    .data_gnt_i    (data_gnt_i),
-    .data_rvalid_i (data_rvalid_i),
-    .data_err_i    (data_err_i),
+    .data_req_o    (lsu_data_req), //TODO: change names for muxing
+    .data_gnt_i    (lsu_data_gnt),
+    .data_rvalid_i (lsu_data_rvalid),
+    .data_err_i    (lsu_data_err),
     .data_pmp_err_i(pmp_req_err[PMP_D]),
 
-    .data_addr_o (data_addr_o),
-    .data_we_o   (data_we_o),
-    .data_be_o   (data_be_o),
-    .data_wdata_o(data_wdata_o),
-    .data_rdata_i(data_rdata_i),
+    .data_addr_o (lsu_data_addr),
+    .data_we_o   (lsu_data_we),
+    .data_be_o   (lsu_data_be),
+    .data_wdata_o(lsu_data_wdata),
+    .data_rdata_i(lsu_data_rdata),
 
     // signals to/from ID/EX stage
     .lsu_we_i      (lsu_we),
     .lsu_type_i    (lsu_type),
-    .lsu_wdata_i   (lsu_wdata),
+    .lsu_wdata_i   (lsu_if_wdata),
     .lsu_sign_ext_i(lsu_sign_ext),
 
     .lsu_rdata_o      (rf_wdata_lsu),
     .lsu_rdata_valid_o(rf_we_lsu),
-    .lsu_req_i        (lsu_req),
+    .lsu_req_i        (lsu_if_req),
 
-    .adder_result_ex_i(alu_adder_result_ex),
+    .adder_result_ex_i(lsu_if_addr),
 
     .addr_incr_req_o(lsu_addr_incr_req),
     .addr_last_o    (lsu_addr_last),
@@ -614,11 +736,121 @@ module cve2_core import cve2_pkg::*; #(
 
     .busy_o(lsu_busy),
 
+    // Vector extension signals
+    .vec_be_i(RV32VX ? lsu_vec_be : 4'b1111), // Default to '1
+
     .perf_load_o (perf_load),
     .perf_store_o(perf_store)
   );
 
+  //////////////////////////
+  // LSU vector interface //
+  //////////////////////////
+  if (RV32VX) begin : gen_lsu_vec_if
+    cve2_lsu_interface #(
+    ) lsu_interface_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+      // signals LSU
+      .lsu_addr_o(lsu_if_addr),
+      .lsu_wdata_o(lsu_if_wdata),
+      .lsu_req_o(lsu_if_req),
+      .en_rvalid_o(),//(en_lsu_rvalid),
+      .lsu_be_o(lsu_vec_be),
+      // signals from LSU
+      .lsu_resp_valid_i(lsu_resp_valid),
+      .lsu_gnt_i(lsu_data_gnt),
+      .lsu_incr_req_i(lsu_addr_incr_req),
+      // signals from ID/EX
+      .start_addr_i(rf_rdata_a),
+      .load_start_i(lsu_if_load_addr),
+      .unit_stride_i(unit_stride),
+      .vec_op_i(vrf_req),
+      // VRF signals
+      .vrf_req_i(vrf_lsu_req),
+      .vrf_data_i(vrf_rdata_c),
+      .vrf_lsu_gnt_o(vrf_lsu_gnt),
+      .vrf_lsu_be_i(vrf_data_be),
+      // scalar signals
+      .scalar_req_i(lsu_req),
+      .scalar_addr_i(alu_adder_result_ex),
+      .scalar_wdata_i(lsu_wdata)
+    );
+  end else begin : gen_no_lsu_vec_if
+    // Tie off unused outputs
+    assign lsu_if_addr      = alu_adder_result_ex;
+    assign lsu_if_wdata     = lsu_wdata;
+    assign lsu_if_req       = lsu_req;
+    //assign en_lsu_rvalid    = 1'b0; //not used
+    assign lsu_vec_be       = 4'b1111;
+    assign vrf_lsu_gnt      = 1'b0;
+  end
+
+  /////////////////////////
+  // Data memory arbiter //
+  /////////////////////////
+  if (RV32VX) begin : gen_dmem_arbiter
+    cve2_dmem_switch #(
+    ) dmem_arbiter_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+	    // Data memory interface
+      .data_req_o(data_req_out),
+      .data_gnt_i(data_gnt_i),
+      .data_rvalid_i(data_rvalid_i),
+      .data_we_o(data_we_o),
+      .data_be_o(data_be_o),
+      .data_addr_o(data_addr_o),
+      .data_wdata_o(data_wdata_o),
+      .data_rdata_i(data_rdata_i),
+      .data_err_i(data_err_i),
+	    // VRF signals
+      .vrf_data_req_i(vrf_data_req),
+      .vrf_data_gnt_o(vrf_data_gnt),
+      .vrf_data_rvalid_o(vrf_data_rvalid),
+      .vrf_data_we_i(vrf_data_we),
+      .vrf_data_be_i(vrf_data_be),
+      .vrf_data_addr_i(agu_addr),
+      .vrf_data_wdata_i(vrf_data_wdata),
+      .vrf_data_rdata_o(vrf_data_rdata),
+      .vrf_data_err_o(vrf_data_err),
+      // LSU signals
+      .lsu_data_req_i(lsu_data_req),
+      .lsu_data_gnt_o(lsu_data_gnt),
+      .lsu_data_rvalid_o(lsu_data_rvalid),
+      .lsu_data_we_i(lsu_data_we),
+      .lsu_data_be_i(lsu_data_be),
+      .lsu_data_addr_i(lsu_data_addr),
+      .lsu_data_wdata_i(lsu_data_wdata),
+      .lsu_data_rdata_o(lsu_data_rdata),
+      .lsu_data_err_o(lsu_data_err),
+      .lsu_resp_valid_i(lsu_resp_valid),
+      .lsu_busy_i(lsu_busy),
+      // Control signals
+      .vector_op_i(vrf_req),
+      .vector_mem_op_i(vrf_lsu_req)
+    );
+  end else begin : gen_no_dmem_arbiter
+    // Connect directly to LSU
+    assign data_req_out = lsu_data_req;
+    assign data_we_o = lsu_data_we;
+    assign data_be_o = lsu_data_be;
+    assign data_addr_o = lsu_data_addr;
+    assign data_wdata_o = lsu_data_wdata;
+    // Tie to 0 VRF signals
+    assign vrf_data_gnt = 1'b0;
+    assign vrf_data_rvalid = 1'b0;
+    assign vrf_data_rdata = 32'b0;
+    assign vrf_data_err = 1'b0;
+    // Input to LSU
+    assign lsu_data_gnt = data_gnt_i;
+    assign lsu_data_rvalid = data_rvalid_i;
+    assign lsu_data_rdata = data_rdata_i;
+    assign lsu_data_err = data_err_i;
+  end
+
   cve2_wb #(
+    .RV32VX(RV32VX)
   ) wb_i (
     .clk_i   (clk_i),
     .rst_ni  (rst_ni),
@@ -640,6 +872,17 @@ module cve2_core import cve2_pkg::*; #(
     .rf_waddr_wb_o(rf_waddr_wb),
     .rf_wdata_wb_o(rf_wdata_wb),
     .rf_we_wb_o   (rf_we_wb),
+
+    // VRF signals
+    //.vrf_we_id_i    (vrf_we_id),
+    .vrf_wdata_id_i (vrf_wdata_id),
+    .vrf_wdata_lsu_i(rf_wdata_lsu),
+    .vrf_is_mem_i   (vrf_memory_op),
+    //.vrf_we_wb_o    (vrf_we_wb), TOOD: check if wrong that it is unused
+    .vrf_wdata_wb_o (vrf_wdata_wb),
+    // write data for vset{i}vl{i}
+    .vl_wdata_i     (vl_d),
+    .vl_we_i        (vcfg_write),
 
     .lsu_resp_valid_i(lsu_resp_valid),
     .lsu_resp_err_i  (lsu_resp_err)
@@ -706,6 +949,116 @@ module cve2_core import cve2_pkg::*; #(
     .wdata_a_i(rf_wdata_wb),
     .we_a_i   (rf_we_wb)
   );
+
+
+  ////////////////////////////////
+  // VRF (Vector Register File) //
+  ////////////////////////////////
+  if (RV32VX) begin : vrf_if_block
+    // VRF interface, containing the logic for the vector register file
+    cve2_vrf_interface #(
+      .VLEN(cve2_pkg::VLEN),
+      .PIPE_WIDTH(32)
+    ) cve2_vrf_interface_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+
+      .req_i(vrf_req),
+
+      .rdata_a_o(vrf_rdata_a),
+      .rdata_b_o(vrf_rdata_b),
+      .rdata_c_o(vrf_rdata_c),
+
+      .wdata_i(vrf_wdata_wb),
+
+      // Data memory interface
+      .data_req_o(vrf_data_req),
+      .data_gnt_i(vrf_data_gnt),
+      .data_rvalid_i(vrf_data_rvalid),
+      .data_err_i(vrf_data_err),
+      .data_pmp_err_i(pmp_req_err[PMP_D]),        // do I need this?
+      .data_we_o(vrf_data_we),
+      .data_be_o(vrf_data_be),
+      .data_wdata_o(vrf_data_wdata),
+      .data_rdata_i(vrf_data_rdata),
+      // LSU control signals
+      .data_load_addr_o(lsu_if_load_addr),
+      .lsu_gnt_i(vrf_lsu_gnt),
+
+      // AGU signals
+      .agu_load_o(agu_load),
+      .agu_get_rs1_o(agu_get_rs1),
+      .agu_get_rs2_o(agu_get_rs2),
+      .agu_get_rd_o(agu_get_rd),
+      .agu_incr_o(agu_incr),
+
+      // control signals
+      .sel_operation_i(vrf_sel_operation),
+      .memory_op_i(vrf_memory_op),
+      .unit_stride_i(unit_stride),
+      .mult_ops_i(vrf_mult_ops),
+      .vector_done_o(vector_done),
+      // Slide
+      .slide_op_i(vrf_slide_op),
+      .slide_offset_i(alu_operand_a_ex),
+      .is_slide_up_i(is_slide_up),
+      // LSU
+      .lsu_req_o(vrf_lsu_req),
+      .lsu_done_i(lsu_resp_valid),
+
+      // CSR
+      .lmul_i(vrf_vlmul),
+      .sew_i(vrf_vsew),
+      .vl_i(vl_q)
+    );
+  end else begin : no_vrf_block
+  // Hardwire all output of VRF if to 0
+    assign vrf_rdata_a = 32'b0;
+    assign vrf_rdata_b = 32'b0;
+    assign vrf_rdata_c = 32'b0;
+    assign vrf_data_req = 1'b0;
+    assign vrf_data_we  = 1'b0;
+    assign vrf_data_be  = 4'b1111; // all bytes enabled as default
+    assign vrf_data_wdata = 32'b0;
+    assign lsu_if_load_addr = 1'b0;
+    assign agu_load = 1'b0;
+    assign agu_get_rs1 = 1'b0;
+    assign agu_get_rs2 = 1'b0;
+    assign agu_get_rd  = 1'b0;
+    assign agu_incr    = 1'b0;
+    assign vector_done = 1'b0; //TODO: check
+    assign vrf_lsu_req = 1'b0;
+  end
+  if (RV32VX) begin : agu_if_block
+    // AGU, translates the VR numbero to a memory address
+    cve2_agu #(
+      .AddrWidth(32)
+    ) agu_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+      // register addresses
+      .rs1_i(rf_raddr_a),
+      .rs2_i(rf_raddr_b),
+      .rd_i(rf_waddr_wb),
+      // control signals from VRF
+      .load_i(agu_load),
+      .get_rs1_i(agu_get_rs1),  
+      .get_rs2_i(agu_get_rs2),
+      .get_rd_i(agu_get_rd),  
+      .incr_i(agu_incr),
+      // slide instructions
+      .is_slide_i(vrf_slide_op),
+      .is_slide_up_i(is_slide_up),
+      // memory address output
+      .addr_i(alu_adder_result_ex),
+      .addr_o(agu_addr) 
+    );
+  end else begin : no_agu_block
+  // Address generated by agu is not used, hardwire to 0
+    assign agu_addr = 32'b0;
+  end
+
+
 
 
   /////////////////////////////////////////
@@ -800,6 +1153,43 @@ module cve2_core import cve2_pkg::*; #(
     .wfi_wait_i                 (perf_wfi_wait),
     .div_wait_i                 (perf_div_wait)
   );
+
+  //-------
+  // CSR VX
+  //-------
+  if (RV32VX) begin : gen_csr_vec
+    cve2_cs_registers_vec #(
+    ) cs_registers_vec_i (
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .vcfg_write_i(vcfg_write),
+      .vl_keep_i   (vl_keep),
+      .rf_raddr_a_i (rf_raddr_a),
+      .rf_raddr_b_i (rf_raddr_b),
+      .vrf_sel_operation_i(vrf_sel_operation),
+      .vrf_memory_op_i(vrf_memory_op),
+      .vmem_ops_eew_i(vmem_ops_eew),
+      .rf_waddr_wb_i(rf_waddr_wb),
+      .alu_operand_a_ex_i(alu_operand_a_ex),
+      .alu_operand_b_ex_i(alu_operand_b_ex),
+      .vrf_vsew_o(vrf_vsew),
+      .vrf_vlmul_o(vrf_vlmul),
+      .vrf_vl_o(vl_d),
+      .vsew_o (vsew_q),
+      .vlmul_o (),//(vlmul_q),
+      .vl_o   (vl_q),
+      .illegal_vec_csr_insn_o(illegal_vec_csr_insn)
+    );
+  end else begin : gen_no_csr_vec
+    // Hardwire all outputs to 0 
+    assign vrf_vsew = 3'b0;
+    assign vrf_vlmul = 2'b0;
+    assign vl_d = 32'b0;
+    assign vsew_q = 3'b0;
+    //assign vlmul_q = 2'b0;
+    assign vl_q = 32'b0;
+    assign illegal_vec_csr_insn = 1'b0;
+  end
 
   // These assertions are in top-level as instr_valid_id required as the enable term
   `ASSERT(CVE2CsrOpValid, instr_valid_id |-> csr_op inside {
@@ -930,7 +1320,7 @@ module cve2_core import cve2_pkg::*; #(
   logic [3:0]  rvfi_dbg;
   logic        rvfi_dbg_mode;
 
-  struct {
+  struct packed {
     logic          rvfi_valid;
     logic [63:0]   rvfi_order;
     logic [31:0]   rvfi_insn;

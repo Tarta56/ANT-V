@@ -38,7 +38,7 @@ module cve2_wb #(
   output logic                     rf_we_wb_o,
   
   // Vector extension
-  input logic                      vrf_we_id_i,
+  //input logic                      vrf_we_id_i,
   input logic [31:0]               vrf_wdata_id_i,
   input logic [31:0]               vrf_wdata_lsu_i,
   input logic                      vrf_is_mem_i,

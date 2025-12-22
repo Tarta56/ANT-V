@@ -18,7 +18,7 @@ module cve2_decoder #(
   parameter bit RV32E               = 0,
   parameter cve2_pkg::rv32m_e RV32M = cve2_pkg::RV32MFast,
   parameter cve2_pkg::rv32b_e RV32B = cve2_pkg::RV32BNone,
-  parameter bit RV32VX                      = 0,
+  parameter bit RV32VX                      = 1'b0,
   parameter bit               XInterface    = 1'b0
 ) (
   input  logic                 clk_i,

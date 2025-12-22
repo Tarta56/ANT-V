@@ -407,13 +407,15 @@ module cve2_id_stage #(
                             slide_addr_req_i    ? OP_B_SLIDE        : alu_op_b_mux_sel_dec;
   assign imm_b_mux_sel    = lsu_addr_incr_req_i ? IMM_B_INCR_ADDR : imm_b_mux_sel_dec;
 
-  
-  // VEC Slide op
-  // ------------
+
+  // VEC Slide op and output
+  // -----------------------
   if (RV32VX) begin
+    assign vrf_wdata_o = result_ex_i;
     assign vslide_op_a = (alu_op_a_mux_sel == OP_A_IMM) ? imm_a : rf_rdata_a_fwd;
     assign vslided_op_a = vslide_op_a << vsew_i;
   end else begin
+    assign vrf_wdata_o = '0;
     assign vslide_op_a = '0;
     assign vslided_op_a = '0;
   end
