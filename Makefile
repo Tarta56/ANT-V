@@ -154,12 +154,51 @@ CVE2_BUILD_DIR 		:= $(CVE2_ROOT)/build
 SYN_RPT_DIR				:= $(CVE2_ROOT)/syn/rpt
 SYN_NETLIST_DIR		:= $(CVE2_ROOT)/syn/netlist
 
+CVE2_PNR_DIR      := $(CVE2_ROOT)/pnr
+PNR_SCRIPT 		:= $(realpath $(CVE2_PNR_DIR)/common/run_pnr.tcl)
+
+TECHS := tsmc65
+PNR_TARGETS 	:= $(addprefix pnr-core-,$(TECHS))
+
+
+_TECH_GOALS 	:= $(filter chs-syn-% chs-pnr-% chs-pnr-gui-%,$(MAKECMDGOALS))
+_REQ_TECHS 		:= $(patsubst chs-syn-%,%,$(patsubst chs-pnr-%,%,$(patsubst chs-pnr-gui-%,%,$(_TECH_GOALS))))
+_INV_TECHS 		:= $(filter-out $(TECHS) all,$(_REQ_TECHS))
+ifneq ($(_INV_TECHS),)
+$(error Invalid technology specified: $(_INV_TECHS). Available technologies are: $(TECHS))
+endif
+
+
+%/: 
+	mkdir -p $@
+
+# Checking for tools
+# ------------------
+.check-dc:
+	@if [ `which dc_shell &> /dev/null` ]; then \
+	printf -- "### ERROR: 'dc_shell' is not in PATH.\n" >&2; \
+	exit 1; fi
+.check-innovus:
+	@if [ `which innovus &> /dev/null` ]; then \
+	printf -- "### ERROR: 'innovus' is not in PATH.\n" >&2; \
+	exit 1; fi
+
 
 .PHONY: syn-core
-syn-core:
+syn-core: .check-dc
 	mkdir -p $(SYN_NETLIST_DIR)
 	fusesoc --cores-root . run --build-root $(CVE2_BUILD_DIR) --target=asic_synthesis --tool=design_compiler --setup --build polito:cve2:cve2_top 2>&1 | tee buildsim.log
 	cp $(SYN_RPT_DIR)/netlist.v $(SYN_NETLIST_DIR)/netlist.v
+	cp $(SYN_RPT_DIR)/netlist.sdc $(SYN_NETLIST_DIR)/netlist.sdc
+
+.PHONY: $(PNR_TARGETS) 
+$(PNR_TARGETS): pnr-core-%: | $(CVE2_BUILD_DIR)/pnr/%/ .check-innovus
+	@echo "### Running P&R with '$*' flow..."
+	rm -rf $(CVE2_BUILD_DIR)/pnr/$*/*
+	cd $(CVE2_BUILD_DIR)/pnr/$* && \
+    	nice -n 5 innovus -batch -stylus -execute "set TECH $*; set ROOT_DIR $(CVE2_ROOT)" -files $(PNR_SCRIPT)
+#cd $(CVE2_BUILD_DIR)/pnr/$*/outputs/lib && \
+#	$(CVE2_IMPL_DIR)/update_lib.sh
 
 
 # Echo the parameters passed to fusesoc for the chosen CVE2_CONFIG
