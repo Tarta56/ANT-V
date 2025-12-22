@@ -1,0 +1,91 @@
+// Copyright 2024 Politecnico di Torino.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 2.0 (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-2.0. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// File: cve2_agu.sv
+// Author: Alessio Caviglia
+
+
+module cve2_agu #(
+    parameter AddrWidth = 32
+) (
+    input logic clk_i,
+    input logic rst_ni,
+
+    // input logic [....] vrf_base_addr_i, // base address of the VRF
+    // addresses of registers
+    input logic [4:0] rs1_i,
+    input logic [4:0] rs2_i,
+    input logic [4:0] rd_i,
+
+    // control signals from VRF
+    input logic load_i,           // parallel load_i for the counters
+    input logic get_rs1_i,        // generate rs1
+    input logic get_rs2_i,        // generate rs2
+    input logic get_rd_i,         // generate rd
+    input logic incr_i,
+
+    // slide support signals
+    input logic is_slide_i,       // the current instruction is a slide
+    input logic is_slide_up_i,    // 1 - slide up, 0 - slide down
+
+    // to/from pipeline
+    input  logic [AddrWidth-1:0] addr_i,   // address with OFFSET
+    output logic [AddrWidth-1:0] addr_o    // requested address
+);
+
+    import cve2_pkg::*;
+
+    // counter signals
+    logic [4:0] addr_rs1_q, addr_rs2_q, addr_rd_q, addr_rs1_d, addr_rs2_d, addr_rd_d;
+
+    //////////////
+    // COUNTERS //
+    //////////////
+
+    // Sequential logic for the counters
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            addr_rs1_q <= '0;
+            addr_rs2_q <= '0;
+            addr_rd_q <= '0;
+        end else begin
+            addr_rs1_q <= addr_rs1_d;
+            addr_rs2_q <= addr_rs2_d;
+            addr_rd_q <= addr_rd_d;
+        end
+    end
+
+    // Combinational logic for the counters
+    always_comb begin
+        addr_rs1_d = load_i ? {rs1_i[2:0], 2'b00} : (get_rs1_i && incr_i) ? addr_rs1_q + 1 : addr_rs1_q;
+        addr_rs2_d = load_i ? {rs2_i[2:0], 2'b00} : (get_rs2_i && incr_i) ? addr_rs2_q + 1 : addr_rs2_q;
+        addr_rd_d = load_i ? {rd_i[2:0], 2'b00} : (get_rd_i && incr_i) ? addr_rd_q + 1 : addr_rd_q;
+        if (is_slide_i && !is_slide_up_i && load_i) addr_rs2_d = addr_i[6:2];      // in slide down the address is vs2 since we start reading it from OFFSET
+        else if (is_slide_i && is_slide_up_i && load_i) addr_rd_d = addr_i[6:2];   // in slide up the address is vd since we start writing it from OFFSET
+    end
+
+    ////////////
+    // OUTPUT //
+    ////////////
+
+    // Multiplexer for the output address
+    always_comb begin
+        // if the instruction is a slide we need to load the address incremented by offset, to do so the adder is exploted
+        if (load_i && is_slide_i) begin
+            addr_o = {VRF_START_ADDR, !is_slide_up_i ? rs2_i : rd_i, 4'b0000};
+        end else begin
+            addr_o = get_rs1_i ? {VRF_START_ADDR, rs1_i[4:3], addr_rs1_q, 2'b00} :
+                     get_rs2_i ? {VRF_START_ADDR, rs2_i[4:3], addr_rs2_q, 2'b00} :
+                     get_rd_i  ? {VRF_START_ADDR, rd_i[4:3], addr_rd_q, 2'b00}  : '0;
+        end
+    end
+
+    
+endmodule
