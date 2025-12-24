@@ -159,10 +159,11 @@ PNR_SCRIPT 		:= $(realpath $(CVE2_PNR_DIR)/common/run_pnr.tcl)
 
 TECHS := tsmc65
 PNR_TARGETS 	:= $(addprefix pnr-core-,$(TECHS))
+PNR_GUI_TARGETS 	:= $(addprefix pnr-core-gui-,$(TECHS))
 
 
-_TECH_GOALS 	:= $(filter chs-syn-% chs-pnr-% chs-pnr-gui-%,$(MAKECMDGOALS))
-_REQ_TECHS 		:= $(patsubst chs-syn-%,%,$(patsubst chs-pnr-%,%,$(patsubst chs-pnr-gui-%,%,$(_TECH_GOALS))))
+_TECH_GOALS 	:= $(filter syn-core-% pnr-core-% pnr-core-gui-%,$(MAKECMDGOALS))
+_REQ_TECHS 		:= $(patsubst syn-core-%,%,$(patsubst pnr-core-%,%,$(patsubst pnr-core-gui-%,%,$(_TECH_GOALS))))
 _INV_TECHS 		:= $(filter-out $(TECHS) all,$(_REQ_TECHS))
 ifneq ($(_INV_TECHS),)
 $(error Invalid technology specified: $(_INV_TECHS). Available technologies are: $(TECHS))
@@ -197,6 +198,14 @@ $(PNR_TARGETS): pnr-core-%: | $(CVE2_BUILD_DIR)/pnr/%/ .check-innovus
 	rm -rf $(CVE2_BUILD_DIR)/pnr/$*/*
 	cd $(CVE2_BUILD_DIR)/pnr/$* && \
     	nice -n 5 innovus -batch -stylus -execute "set TECH $*; set ROOT_DIR $(CVE2_ROOT)" -files $(PNR_SCRIPT)
+#cd $(CVE2_BUILD_DIR)/pnr/$*/outputs/lib && \
+#	$(CVE2_IMPL_DIR)/update_lib.sh
+
+$(PNR_GUI_TARGETS): pnr-core-gui-%: | $(CVE2_BUILD_DIR)/pnr/%/ .check-innovus
+	@echo "### Running P&R with '$*' flow (GUI)..."
+	rm -rf $(CVE2_BUILD_DIR)/pnr/$*/*
+	cd $(CVE2_BUILD_DIR)/pnr/$* && \
+    	nice -n 5 innovus -stylus -execute "gui_show; set TECH $*; set ROOT_DIR $(CVE2_ROOT)" -files $(PNR_SCRIPT)
 #cd $(CVE2_BUILD_DIR)/pnr/$*/outputs/lib && \
 #	$(CVE2_IMPL_DIR)/update_lib.sh
 
