@@ -71,7 +71,6 @@ module cve2_wb #(
     assign perf_instr_ret_compressed_wb_o      = perf_instr_ret_wb_o & instr_is_compressed_id_i;
 
   assign rf_wdata_wb_mux[1]    = rf_wdata_lsu_i;
-  assign rf_wdata_wb_mux_we[1] = rf_we_lsu_i;
 
   if (RV32VX) begin : rv32vx_wb_block
     // Write data for vset{i}vl{i}
@@ -82,6 +81,7 @@ module cve2_wb #(
     // later I will extend it with a multiplexer for load data (similar to the RF one above)
     //assign vrf_we_wb_o    = vrf_we_id_i;
     assign vrf_wdata_wb_o = vrf_is_mem_i ? vrf_wdata_lsu_i : vrf_wdata_id_i;
+    assign rf_wdata_wb_mux_we[1] = rf_we_lsu_i & ~vrf_is_mem_i;
 
   end else begin : no_rv32vx_wb_block
     assign rf_wdata_wb_mux[2]    = 32'b0;
@@ -89,6 +89,7 @@ module cve2_wb #(
 
     //assign vrf_we_wb_o    = 1'b0;
     assign vrf_wdata_wb_o = 32'b0;
+    assign rf_wdata_wb_mux_we[1] = rf_we_lsu_i;
   end
 
   // RF write data can come from ID results (all RF writes that aren't because of loads will come
