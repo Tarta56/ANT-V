@@ -255,6 +255,14 @@ module cve2_ex_block #(
         .multdiv_result_o  (multdiv_result)
       );
     end
+  end else begin : gen_no_multdiv
+    // No RV32M extension
+    assign multdiv_result        = 32'b0;
+    assign multdiv_alu_operand_a = '0;
+    assign multdiv_alu_operand_b = '0;
+    assign multdiv_valid         = '0;
+    assign multdiv_imd_val_d     = {'0, '0};
+    assign multdiv_imd_val_we    = '0;
   end
 
   // Multiplier/divider may require multiple cycles. The ALU output is valid in the same cycle
