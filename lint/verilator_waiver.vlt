@@ -76,7 +76,13 @@ lint_off -rule UNUSED -file "*/rtl/cve2_wb.sv" -match "Signal is not used: 'rst_
 
 
 // CSR width
-// Due to RVFI
 lint_off -rule WIDTH -file "*/rtl/cve2_cs_registers.sv"
-lint_off -rule WIDTH -file "*/rtl/cve2_core.sv"
+lint_off -rule BLKSEQ -file "*/rtl/cve2_cs_registers.sv"
+lint_off -rule UNUSED -file "*/rtl/cve2_cs_registers.sv"
 
+// Due to RVFI
+lint_off -rule WIDTH -file "*/rtl/cve2_core.sv"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'rvfi_instr_if'"
+lint_off -rule UNUSED -file "*/rtl/cve2_cs_registers.sv" -match "Signal is not used: 'rvfi_csr_if'"
+
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'hart_id_i'"
