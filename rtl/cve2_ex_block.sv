@@ -71,6 +71,7 @@ module cve2_ex_block #(
   // Signals for vector extensions
   logic [31:0] alu_operand_a, alu_operand_b;
   logic [31:0] multdiv_operand_b;
+  logic use_mult_add;
 
 
   /*
@@ -101,7 +102,26 @@ module cve2_ex_block #(
 
   assign branch_target_o = alu_adder_result_ex_o;
 
-  
+  //---------------
+  // Multycicle MAC
+  //---------------
+  // Insert an intermediate reg between mul result and ALU
+  // to shorten critical path
+  // TODO: can use a flag to enable or disable it
+  logic [31:0] multdiv_result_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      multdiv_result_q <= 32'b0;
+    end else begin
+      if (use_mult_add) begin
+        multdiv_result_q <= multdiv_result;
+      end
+    end
+  end
+
+
+
   ///////////////////////
   // Operand selection //
   ///////////////////////
@@ -112,28 +132,32 @@ module cve2_ex_block #(
       alu_operand_a = alu_operand_a_i;
       alu_operand_b = alu_operand_b_i;
       multdiv_operand_b = multdiv_operand_b_i;
-
+      use_mult_add = 1'b0;
       case (alu_operator_i)
         ALU_MOVE: begin
           alu_operand_b = '0;
         end
         ALU_MAC: begin
           alu_operand_a = alu_operand_c_i;
-          alu_operand_b = multdiv_result;
+          alu_operand_b = multdiv_result_q;
+          use_mult_add = 1'b1;
         end
         ALU_NMSAC: begin
           alu_operand_a = alu_operand_c_i;
-          alu_operand_b = multdiv_result;
+          alu_operand_b = multdiv_result_q;
+          use_mult_add = 1'b1;
         end
         ALU_MADD: begin
           alu_operand_a = alu_operand_c_i;
-          alu_operand_b = multdiv_result;
+          alu_operand_b = multdiv_result_q;
           multdiv_operand_b = alu_operand_c_i;
+          use_mult_add = 1'b1;
         end
         ALU_NMSUB: begin
           alu_operand_a = alu_operand_c_i;
-          alu_operand_b = multdiv_result;
+          alu_operand_b = multdiv_result_q;
           multdiv_operand_b = alu_operand_c_i;
+          use_mult_add = 1'b1;
         end
         default: ;
       endcase
