@@ -121,27 +121,32 @@ module cve2_vrf_interface #(
     // BE for last write
     // For slide down operations it depends both on vl and the offset
     if (slide_op_i && !is_slide_up_i) begin
+      no_offset = 1'b1;
+      slide_offset_be = 4'b1111;
       case ({offset_q, slide_offset_q})
-        4'b0111: begin
+        4'b0111, 4'b0010: begin
           offset_be = 4'b0011;
-          no_offset = 1'b1;
         end
-        4'b0110, 4'b1011: begin
+        4'b0001, 4'b0110, 4'b1011: begin
           offset_be = 4'b0111;
-          no_offset = 1'b1;
         end
         4'b0000, 4'b0101, 4'b1010, 4'b1111: begin
           offset_be = 4'b1111;
-          no_offset = 1'b1;
         end
-        4'b0011, 4'b0100, 4'b1001, 4'b1110: begin
+        4'b0011: begin
           offset_be = 4'b0001;
         end
-        4'b0010, 4'b1000, 4'b1101: begin
+        4'b1000, 4'b1101: begin
           offset_be = 4'b0011;
+          no_offset = 1'b0;
         end
-        4'b0001, 4'b1100: begin
+        4'b1100: begin
           offset_be = 4'b0111;
+          no_offset = 1'b0;
+        end
+        4'b0100, 4'b1001, 4'b1110: begin
+          offset_be = 4'b0001;
+          no_offset = 1'b0;
         end
         default: offset_be = 4'b0000;
       endcase
