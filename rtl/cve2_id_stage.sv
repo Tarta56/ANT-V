@@ -307,6 +307,7 @@ module cve2_id_stage #(
   // [VEC] Vector extension
   logic                   stall_vec;
   logic [31:0]            imm_v_type;
+  logic varith_op;
   // vcfg
   logic [31:0]            imm_vcfg;
 
@@ -403,8 +404,7 @@ module cve2_id_stage #(
 
   // Misaligned loads/stores result in two aligned loads/stores, compute second address
   assign alu_op_a_mux_sel = lsu_addr_incr_req_i ? OP_A_FWD        : alu_op_a_mux_sel_dec;
-  assign alu_op_b_mux_sel = lsu_addr_incr_req_i ? OP_B_IMM          : 
-                            slide_addr_req_i    ? OP_B_SLIDE        : alu_op_b_mux_sel_dec;
+  assign alu_op_b_mux_sel = lsu_addr_incr_req_i ? OP_B_IMM        : alu_op_b_mux_sel_dec;
   assign imm_b_mux_sel    = lsu_addr_incr_req_i ? IMM_B_INCR_ADDR : imm_b_mux_sel_dec;
 
 
@@ -419,6 +419,7 @@ module cve2_id_stage #(
     assign vslide_op_a = '0;
     assign vslided_op_a = '0;
   end
+  assign varith_op = RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o;
 
   ///////////////////
   // Operand MUXES //
@@ -441,7 +442,7 @@ module cve2_id_stage #(
     unique case (alu_op_a_mux_sel)
 
       OP_A_REG_A: begin
-        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+        if (varith_op) begin
           case (vsew_i)
             VSEW_8:   alu_operand_a = {rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0], rf_rdata_a_fwd[7:0]};
             VSEW_16:  alu_operand_a = {rf_rdata_a_fwd[15:0], rf_rdata_a_fwd[15:0]};
@@ -459,9 +460,9 @@ module cve2_id_stage #(
 
       OP_A_IMM: begin
         alu_operand_a = imm_a;
-        if (RV32VX &&  slide_addr_req_i) begin
+        if (RV32VX && slide_addr_req_i) begin
           alu_operand_a = vslided_op_a;   // Support for vector slide immediate
-        end else if (RV32VX && !vrf_memory_op_o  && vrf_req_o) begin
+        end else if (varith_op) begin
           case (vsew_i)
             VSEW_8:   alu_operand_a = {imm_a[7:0], imm_a[7:0], imm_a[7:0], imm_a[7:0]};
             VSEW_16:  alu_operand_a = {imm_a[15:0], imm_a[15:0]};
@@ -516,7 +517,7 @@ module cve2_id_stage #(
     unique case (alu_op_b_mux_sel)
 
       OP_B_REG_B:  begin
-        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+        if (varith_op) begin
           case (vsew_i)
             VSEW_8:   alu_operand_b = {rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0], rf_rdata_b_fwd[7:0]};
             VSEW_16:  alu_operand_b = {rf_rdata_b_fwd[15:0], rf_rdata_b_fwd[15:0]};
@@ -531,7 +532,7 @@ module cve2_id_stage #(
       OP_B_VREG:   alu_operand_b = vrf_rdata_b_i;     // [VEC] Vector extension
 
       OP_B_IMM:    begin
-        if (RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
+        if (varith_op) begin
           case (vsew_i)
             VSEW_8:   alu_operand_b = {imm_b[7:0], imm_b[7:0], imm_b[7:0], imm_b[7:0]};
             VSEW_16:  alu_operand_b = {imm_b[15:0], imm_b[15:0]};
@@ -542,8 +543,7 @@ module cve2_id_stage #(
           alu_operand_b = imm_b;
         end
       end
-
-      OP_B_SLIDE:  alu_operand_b = slide_base_addr_i;
+      
       default:     alu_operand_b = rf_rdata_b_fwd;
     endcase
   end
@@ -827,7 +827,7 @@ module cve2_id_stage #(
 
   assign alu_operator_ex_o           = alu_operator;
   assign alu_operand_a_ex_o          = alu_operand_a;
-  assign alu_operand_b_ex_o          = alu_operand_b;
+  assign alu_operand_b_ex_o          = (slide_addr_req_i) ? slide_base_addr_i : alu_operand_b;
 
   assign mult_en_ex_o                = mult_en_id;
   assign div_en_ex_o                 = div_en_id;
