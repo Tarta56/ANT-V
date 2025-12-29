@@ -787,6 +787,8 @@ module cve2_decoder #(
                 vrf_mult_ops_o = 1'b1;
               end
               {6'b00_0010, 3'b100}: begin    // vsub.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
               end
               {6'b10_0101, 3'b010}: begin    // vmul.vv
                 vrf_we_o = 1'b1;
@@ -800,6 +802,84 @@ module cve2_decoder #(
                 vrf_sel_operation_o = 4'b1010;
                 multdiv_operator_o    = MD_OP_MULL;
                 multdiv_signed_mode_o = 2'b00;
+              end
+
+              // LOGICAL
+              {6'b00_1001, 3'b000}: begin    // vand.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_1001, 3'b100}: begin    // vand.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_1001, 3'b011}: begin    // vand.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_1010, 3'b000}: begin    // vor.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_1010, 3'b100}: begin    // vor.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_1010, 3'b011}: begin    // vor.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_1011, 3'b000}: begin    // vxor.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_1011, 3'b100}: begin    // vxor.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_1011, 3'b011}: begin    // vxor.vi
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              // MAX
+              {6'b00_0100, 3'b000}: begin    // vminu.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0100, 3'b100}: begin    // vminu.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_0101, 3'b000}: begin    // vmin.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0101, 3'b100}: begin    // vmin.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_0110, 3'b000}: begin    // vmaxu.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0110, 3'b100}: begin    // vmaxu.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
+              end
+              {6'b00_0111, 3'b000}: begin    // vmax.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+              end
+              {6'b00_0111, 3'b100}: begin    // vmax.vx
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1010;
               end
 
               // Multiply-and-Accumulate instructions
@@ -900,6 +980,8 @@ module cve2_decoder #(
               vrf_mult_ops_o = 1'b1;
             end
             {6'b00_0010, 3'b100}: begin    // xvsub.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
             end
             {6'b10_0101, 3'b010}: begin    // xvmul.vv
               vrf_we_o = 1'b1;
@@ -914,6 +996,85 @@ module cve2_decoder #(
               multdiv_operator_o    = MD_OP_MULL;
               multdiv_signed_mode_o = 2'b00;
             end
+
+            // LOGICAL
+            {6'b00_1001, 3'b000}: begin    // xvand.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_1001, 3'b100}: begin    // xvand.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_1001, 3'b011}: begin    // xvand.vi
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_1010, 3'b000}: begin    // xvor.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_1010, 3'b100}: begin    // xvor.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_1010, 3'b011}: begin    // xvor.vi
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_1011, 3'b000}: begin    // xvxor.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_1011, 3'b100}: begin    // xvxor.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_1011, 3'b011}: begin    // xvxor.vi
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            // MAX
+            {6'b00_0100, 3'b000}: begin    // xvminu.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_0100, 3'b100}: begin    // xvminu.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_0101, 3'b000}: begin    // xvmin.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_0101, 3'b100}: begin    // xvmin.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_0110, 3'b000}: begin    // xvmaxu.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_0110, 3'b100}: begin    // xvmaxu.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+            {6'b00_0111, 3'b000}: begin    // xvmax.vv
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1011;
+              vrf_mult_ops_o = 1'b1;
+            end
+            {6'b00_0111, 3'b100}: begin    // xvmax.vx
+              vrf_we_o = 1'b1;
+              vrf_sel_operation_o = 4'b1010;
+            end
+
             // Multiply-and-Accumulate instructions
             {6'b10_1101, 3'b010}: begin    // xvmacc.vv
               vrf_we_o = 1'b1;
