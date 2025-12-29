@@ -37,7 +37,8 @@ module cve2_agu #(
 
     // to/from pipeline
     input  logic [AddrWidth-1:0] addr_i,   // address with OFFSET
-    output logic [AddrWidth-1:0] addr_o    // requested address
+    output logic [AddrWidth-1:0] slide_start_addr_o,    // requested address
+    output logic [AddrWidth-1:0] mem_if_addr_o         // requested address
 );
 
     import cve2_pkg::*;
@@ -77,14 +78,15 @@ module cve2_agu #(
 
     // Multiplexer for the output address
     always_comb begin
-        // if the instruction is a slide we need to load the address incremented by offset, to do so the adder is exploted
         if (load_i && is_slide_i) begin
-            addr_o = {VRF_START_ADDR, !is_slide_up_i ? rs2_i : rd_i, 4'b0000};
+            slide_start_addr_o = {VRF_START_ADDR, !is_slide_up_i ? rs2_i : rd_i, 4'b0000};
         end else begin
-            addr_o = get_rs1_i ? {VRF_START_ADDR, rs1_i[4:3], addr_rs1_q, 2'b00} :
+            slide_start_addr_o = '0;
+        end
+ 
+        mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR, rs1_i[4:3], addr_rs1_q, 2'b00} :
                      get_rs2_i ? {VRF_START_ADDR, rs2_i[4:3], addr_rs2_q, 2'b00} :
                      get_rd_i  ? {VRF_START_ADDR, rd_i[4:3], addr_rd_q, 2'b00}  : '0;
-        end
     end
 
     
