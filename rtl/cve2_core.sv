@@ -272,6 +272,12 @@ module cve2_core import cve2_pkg::*; #(
   logic [31:0] lsu_data_rdata;
   logic lsu_data_err;
 
+  // ID <--> AGU
+  // Custom vector extension, indirect addressing mode
+  logic [4:0] vrf_raddr_a;
+  logic [4:0] vrf_raddr_b;
+  logic [4:0] vrf_waddr_wb;
+  logic vx_instr; //custom instr decoded
 
 
   // Vector WB <--> ID
@@ -591,6 +597,8 @@ module cve2_core import cve2_pkg::*; #(
     // Slide
     .slide_addr_req_i(agu_load && vrf_slide_op),
     .slide_base_addr_i(agu_slide_addr),
+    // Custom instructions
+    .vx_instr_o(vx_instr),
     // CSR exceptions
     .illegal_vec_csr_insn_i(illegal_vec_csr_insn),
 
@@ -1031,15 +1039,19 @@ module cve2_core import cve2_pkg::*; #(
   end
   if (RV32VX) begin : agu_if_block
     // AGU, translates the VR numbero to a memory address
+    // Custom instructions have vrf idx encoded in the scalar register with idx in rs2 field
+    assign vrf_raddr_a  = (vx_instr) ? rf_rdata_b[20:16] : rf_raddr_a;
+    assign vrf_raddr_b  = (vx_instr) ? rf_rdata_b[12:8]  : rf_raddr_b;
+    assign vrf_waddr_wb = (vx_instr) ? rf_rdata_b[4:0]   : rf_waddr_wb;
     cve2_agu #(
       .AddrWidth(32)
     ) agu_i (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
       // register addresses
-      .rs1_i(rf_raddr_a),
-      .rs2_i(rf_raddr_b),
-      .rd_i(rf_waddr_wb),
+      .rs1_i(vrf_raddr_a),
+      .rs2_i(vrf_raddr_b),
+      .rd_i (vrf_waddr_wb),
       // control signals from VRF
       .load_i(agu_load),
       .get_rs1_i(agu_get_rs1),  

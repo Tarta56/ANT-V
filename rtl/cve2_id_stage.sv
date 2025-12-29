@@ -152,6 +152,8 @@ module cve2_id_stage #(
   // Vectore slide instructions
   input  logic                      slide_addr_req_i,
   input  logic [31:0]               slide_base_addr_i,
+  // Custom instruction
+  output logic                      vx_instr_o,
   // CSR related invalid instruction
   input  logic                      illegal_vec_csr_insn_i,
 
@@ -543,7 +545,7 @@ module cve2_id_stage #(
           alu_operand_b = imm_b;
         end
       end
-      
+
       default:     alu_operand_b = rf_rdata_b_fwd;
     endcase
   end
@@ -676,6 +678,7 @@ module cve2_id_stage #(
     .vrf_mult_ops_o(vrf_mult_ops_o),
     .vrf_slide_op_o(vrf_slide_op_o),
     .is_slide_up_o(is_slide_up_o),
+    .vx_instr_o(vx_instr_o),
     // vector immediates
     .imm_v_type_o(imm_v_type),
     // vector cfg setting instructions

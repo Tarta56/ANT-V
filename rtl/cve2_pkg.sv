@@ -109,7 +109,8 @@ package cve2_pkg;
     // Vector extension
     OPCODE_LOAD_V   = 7'h07,
     OPCODE_STORE_V  = 7'h27,
-    OPCODE_OP_V     = 7'h57
+    OPCODE_OP_V     = 7'h57,
+    OPCODE_OP_VX    = 7'h5b
   } opcode_e;
 
 

@@ -99,6 +99,8 @@ module cve2_decoder #(
   // Slide instructions
   output logic                  vrf_slide_op_o,
   output logic                  is_slide_up_o,
+  // Custom instruction
+  output logic                  vx_instr_o,
   // immediate
   output logic [31:0]           imm_v_type_o,          // immediate for vector instructions
   // vector cfg setting instructions
@@ -279,7 +281,7 @@ module cve2_decoder #(
     // slide instructions
     vrf_slide_op_o        = 1'b0;
     is_slide_up_o         = 1'b0;
-
+    vx_instr_o            = 1'b0;
     opcode                = opcode_e'(instr[6:0]);
 
     unique case (opcode)
@@ -868,6 +870,24 @@ module cve2_decoder #(
               end
           endcase
         end
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
+      OPCODE_OP_VX: begin
+        if (RV32VX) begin
+          unique case ({instr[31:26], instr[14:12]})
+            {6'b00_0000, 3'b000}: begin //xvadd.vv
+                vrf_we_o = 1'b1;
+                vrf_sel_operation_o = 4'b1011;
+                vrf_mult_ops_o = 1'b1;
+                vx_instr_o = 1'b1;
+            end
+            default: begin
+              illegal_insn = 1'b1;
+            end
+          endcase
         end else begin
           illegal_insn = 1'b1;
         end
@@ -1648,6 +1668,20 @@ module cve2_decoder #(
               default: ;
             endcase
           end
+        end
+      end
+       OPCODE_OP_VX: begin
+        alu_op_a_mux_sel_o = OP_A_VREG;
+        alu_op_b_mux_sel_o = OP_B_VREG;
+        if (RV32VX) begin
+          unique case ({instr[31:26], instr[14:12]})
+            {6'b00_0000, 3'b000}: begin //xvadd.vv
+              alu_operator_o = ALU_ADD;
+            end
+            default: begin
+              alu_operator_o = ALU_ADD;
+            end
+          endcase
         end
       end
 
