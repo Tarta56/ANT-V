@@ -1044,7 +1044,8 @@ module cve2_core import cve2_pkg::*; #(
     assign vrf_raddr_b  = (vx_instr) ? rf_rdata_b[12:8]  : rf_raddr_b;
     assign vrf_waddr_wb = (vx_instr) ? rf_rdata_b[4:0]   : rf_waddr_wb;
     cve2_agu #(
-      .AddrWidth(32)
+      .AddrWidth(32),
+      .VLEN(cve2_pkg::VLEN)
     ) agu_i (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
