@@ -110,7 +110,9 @@ package cve2_pkg;
     OPCODE_LOAD_V   = 7'h07,
     OPCODE_STORE_V  = 7'h27,
     OPCODE_OP_V     = 7'h57,
-    OPCODE_OP_VX    = 7'h5b
+    OPCODE_OP_VX    = 7'h5b, // custom 2
+    OPCODE_LOAD_VX  = 7'h0b, // custom 1
+    OPCODE_STORE_VX = 7'h2b // custom 0
   } opcode_e;
 
 

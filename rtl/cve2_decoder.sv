@@ -717,6 +717,26 @@ module cve2_decoder #(
         end
       end
 
+       OPCODE_LOAD_VX: begin  // Vector Load
+        if (RV32VX) begin
+          vx_instr_o = 1'b1;
+          // VRF control signals
+          vrf_req_o = 1'b1;
+          vrf_we_o = 1'b1;
+          vrf_memory_op_o = 1'b1;
+          vrf_sel_operation_o = 4'b1000;
+          rf_ren_a_o          = 1'b1;
+          if (instr[31:26] == 6'b000000) begin
+            unit_stride_o = 1'b1;
+          end else begin
+            illegal_insn = 1'b1;
+          end
+          // only support unit-stride mem operations
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
       OPCODE_STORE_V: begin  // Vector Store
         if (RV32VX) begin
           // VRF control signals
@@ -743,6 +763,27 @@ module cve2_decoder #(
           illegal_insn = 1'b1;
         end
       end
+
+      OPCODE_STORE_VX: begin  // Vector Store
+        if (RV32VX) begin
+          vx_instr_o = 1'b1;
+          // VRF control signals
+          vrf_req_o = 1'b1;
+          vrf_memory_op_o = 1'b1;
+          vrf_sel_operation_o = 4'b0100;
+          rf_ren_a_o         = 1'b1;
+          data_we_o          = 1'b1;        // write enable for data memory
+          if (instr[31:26] == 6'b000000) begin //all fields 0, except for mask enable, not considered here
+              unit_stride_o = 1'b1;
+          end else begin
+            illegal_insn = 1'b1;
+          end
+          // only support unit-stride mem operations
+        end else begin
+          illegal_insn = 1'b1;
+        end
+      end
+
 
       OPCODE_OP_V: begin  // Vector Operations
         if (RV32VX) begin
@@ -1687,7 +1728,27 @@ module cve2_decoder #(
         end
       end
 
+      OPCODE_LOAD_VX: begin
+        if (RV32VX) begin
+          if (instr[31:26] == 6'b000000) begin
+            alu_op_b_mux_sel_o = OP_B_REG_B;
+            alu_op_a_mux_sel_o = OP_A_FWD;
+            alu_operator_o = ALU_ADD;
+          end
+        end
+      end
+
       OPCODE_STORE_V: begin
+        if (RV32VX) begin
+          if (instr[31:26] == 6'b000000) begin
+            alu_op_b_mux_sel_o = OP_B_REG_B;
+            alu_op_a_mux_sel_o = OP_A_FWD;
+            alu_operator_o = ALU_ADD;
+          end
+        end
+      end
+
+      OPCODE_STORE_VX: begin
         if (RV32VX) begin
           alu_op_b_mux_sel_o = OP_B_REG_B;
           alu_op_a_mux_sel_o = OP_A_FWD;
