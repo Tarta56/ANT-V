@@ -23,6 +23,7 @@ module cve2_core import cve2_pkg::*; #(
   parameter rv32m_e      RV32M             = RV32MFast,
   parameter rv32b_e      RV32B             = RV32BNone,
   parameter bit          RV32VX            = 1'b0,
+  parameter int unsigned VLEN              = 128,
   parameter bit          DbgTriggerEn      = 1'b0,
   parameter int unsigned DbgHwBreakNum     = 1,
   parameter bit          XInterface        = 1'b0
@@ -965,7 +966,7 @@ module cve2_core import cve2_pkg::*; #(
   if (RV32VX) begin : vrf_if_block
     // VRF interface, containing the logic for the vector register file
     cve2_vrf_interface #(
-      .VLEN(cve2_pkg::VLEN),
+      .VLEN(VLEN),
       .PIPE_WIDTH(32)
     ) cve2_vrf_interface_i (
       .clk_i(clk_i),
@@ -1045,7 +1046,7 @@ module cve2_core import cve2_pkg::*; #(
     assign vrf_waddr_wb = (vx_instr) ? rf_rdata_b[4:0]   : rf_waddr_wb;
     cve2_agu #(
       .AddrWidth(32),
-      .VLEN(cve2_pkg::VLEN)
+      .VLEN(VLEN)
     ) agu_i (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
@@ -1174,6 +1175,7 @@ module cve2_core import cve2_pkg::*; #(
   //-------
   if (RV32VX) begin : gen_csr_vec
     cve2_cs_registers_vec #(
+      .VLEN(VLEN)
     ) cs_registers_vec_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),

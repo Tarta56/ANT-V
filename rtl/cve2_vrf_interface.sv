@@ -268,9 +268,10 @@ module cve2_vrf_interface #(
             agu_load_o = 1'b1;
             // Data memory if - load the start address
             if (memory_op_i) data_load_addr_o = 1'b1;
+            // TODO: maybe can use less than 32 bits (optimize it, some are fixed, avoid ovf)
             num_iterations_d = slide_op_i ? num_bytes_elements[31:2] - slide_offset_i[31:2] : num_bytes_elements[31:2];
             slide_offset_en = slide_op_i;
-            offset_d = num_bytes_elements[1:0];
+            offset_d = num_bytes_elements[1:0]; //TODO: check this does not break for VLEN >128 (should be ok)
             vrf_next_state = VRF_START;
           end
         end

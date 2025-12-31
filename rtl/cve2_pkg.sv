@@ -13,8 +13,7 @@ package cve2_pkg;
   // Vector Extension //
   //////////////////////
 
-  parameter logic [31:0] VLEN          = 32'd256; // Vector register file length in bits
-  parameter int unsigned VRF_ADDR_WIDTH = 5 + $clog2(VLEN/8);
+  parameter logic [31:0] VLENb          = 32'd256; // Vector register file length in bits
   parameter logic [31:0] VRF_START_ADDR = 32'h4000; //aligned to 16 kB, 512B max per vector
   // Vector register file states
   typedef enum logic [3:0]{

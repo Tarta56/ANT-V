@@ -15,7 +15,7 @@
 module cve2_cs_registers_vec 
   import cve2_pkg::*;
 #(
-
+  parameter int unsigned VLEN = cve2_pkg::VLENb
 ) (
   input logic                clk_i,
   input logic                rst_ni,

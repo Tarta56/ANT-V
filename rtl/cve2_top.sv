@@ -21,6 +21,7 @@ module cve2_top import cve2_pkg::*; #(
   parameter rv32m_e      RV32M            = RV32MSingleCycle,
   // Enable custom vector extension support
   parameter bit          RV32VX           = 1'b1,
+  parameter int unsigned VLEN             = cve2_pkg::VLENb,
   parameter bit          XInterface       = 1'b0
 ) (
   // Clock and Reset
@@ -184,6 +185,7 @@ module cve2_top import cve2_pkg::*; #(
     .RV32M            (RV32M),
     .RV32B            (RV32B),
     .RV32VX           (RV32VX),
+    .VLEN             (VLEN),
     .DbgTriggerEn     (DbgTriggerEn),
     .DbgHwBreakNum    (DbgHwBreakNum),
     .XInterface       (XInterface)
