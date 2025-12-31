@@ -357,7 +357,7 @@ module cve2_id_stage #(
     // Result Interface
     assign x_result_ready_o = 1'b1;
     if (RV32VX) begin
-      assign illegal_insn_o = instr_valid_i & (illegal_csr_insn_i | (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.accept)) | (vrf_req_o && illegal_vec_csr_insn_i);
+      assign illegal_insn_o = instr_valid_i & ((illegal_csr_insn_i | (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_i.accept)) | (vrf_req_o && illegal_vec_csr_insn_i));
       assign multicycle_done = lsu_req_dec ? lsu_resp_valid_i : (illegal_insn_dec ? coproc_done : (vrf_req_o ? vector_done_i : ex_valid_i));
 
     end else begin
