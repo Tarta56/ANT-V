@@ -14,6 +14,7 @@
 
 module cve2_agu #(
     parameter int unsigned AddrWidth = 32,
+    parameter int unsigned VRF_START_ADDR = 32'h00010000, // base address of the VRF
     parameter int unsigned VLEN = 128 // Max length in bits of vector registers
 ) (
     input logic clk_i,
@@ -82,7 +83,7 @@ module cve2_agu #(
     //end
     always_comb begin
         addr_rs1_d = load_i ? {rs1_i[2:0], {VRegAddrWidthW{1'b0}}} : (get_rs1_i && incr_i) ? addr_rs1_q[MaxCntWidth-1:0] + 1 : addr_rs1_q;
-        addr_rs2_d = load_i ? {rs2_i[2:0], {VRegAddrWidthW{1'b0}}} : (get_rs1_i && incr_i) ? addr_rs2_q[MaxCntWidth-1:0] + 1 : addr_rs2_q; 
+        addr_rs2_d = load_i ? {rs2_i[2:0], {VRegAddrWidthW{1'b0}}} : (get_rs2_i && incr_i) ? addr_rs2_q[MaxCntWidth-1:0] + 1 : addr_rs2_q; 
         addr_rd_d  = load_i ? {rd_i[2:0],  {VRegAddrWidthW{1'b0}}} : (get_rd_i  && incr_i) ? addr_rd_q[MaxCntWidth-1:0]  + 1  : addr_rd_q;
         // TODO: fix
         if (is_slide_i && !is_slide_up_i && load_i) begin
@@ -110,14 +111,14 @@ module cve2_agu #(
     //end
     always_comb begin
         if (load_i && is_slide_i) begin
-            slide_start_addr_o = {VRF_START_ADDR[31-5-VRegAddrWidth:0], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
+            slide_start_addr_o = {core_v_mini_mcu_pkg::VRF_START_ADDR[31-5-VRegAddrWidth:0], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
         end else begin
             slide_start_addr_o = '0;
         end
         // chain 2 0s for byte alignment
-        mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rs1_i[4:3], addr_rs1_q, 2'b00} :
-                        get_rs2_i ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rs2_i[4:3], addr_rs2_q, 2'b00} :
-                        get_rd_i  ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
+        mem_if_addr_o = get_rs1_i ? {core_v_mini_mcu_pkg::VRF_START_ADDR[31-5-VRegAddrWidth:0], rs1_i[4:3], addr_rs1_q, 2'b00} :
+                        get_rs2_i ? {core_v_mini_mcu_pkg::VRF_START_ADDR[31-5-VRegAddrWidth:0], rs2_i[4:3], addr_rs2_q, 2'b00} :
+                        get_rd_i  ? {core_v_mini_mcu_pkg::VRF_START_ADDR[31-5-VRegAddrWidth:0], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
     end
     
 endmodule
