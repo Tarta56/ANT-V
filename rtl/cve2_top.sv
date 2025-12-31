@@ -22,6 +22,7 @@ module cve2_top import cve2_pkg::*; #(
   // Enable custom vector extension support
   parameter bit          RV32VX           = 1'b1,
   parameter int unsigned VLEN             = cve2_pkg::VLENb,
+  parameter int unsigned VRF_START_ADDR   = cve2_pkg::VRF_START_ADDR,
   parameter bit          XInterface       = 1'b0
 ) (
   // Clock and Reset
@@ -186,6 +187,7 @@ module cve2_top import cve2_pkg::*; #(
     .RV32B            (RV32B),
     .RV32VX           (RV32VX),
     .VLEN             (VLEN),
+    .VRF_START_ADDR   (VRF_START_ADDR),
     .DbgTriggerEn     (DbgTriggerEn),
     .DbgHwBreakNum    (DbgHwBreakNum),
     .XInterface       (XInterface)

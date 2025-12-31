@@ -14,7 +14,7 @@ package cve2_pkg;
   //////////////////////
 
   parameter logic [31:0] VLENb          = 32'd256; // Vector register file length in bits
-  parameter logic [31:0] VRF_START_ADDR = 32'h4000; //aligned to 16 kB, 512B max per vector
+  parameter logic [31:0] VRF_START_ADDR = 32'h0001; //aligned to VRF dimension
   // Vector register file states
   typedef enum logic [3:0]{
     VRF_IDLE,

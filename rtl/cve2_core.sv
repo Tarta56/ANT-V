@@ -24,6 +24,7 @@ module cve2_core import cve2_pkg::*; #(
   parameter rv32b_e      RV32B             = RV32BNone,
   parameter bit          RV32VX            = 1'b0,
   parameter int unsigned VLEN              = 128,
+  parameter int unsigned VRF_START_ADDR    = 32'h00010000,
   parameter bit          DbgTriggerEn      = 1'b0,
   parameter int unsigned DbgHwBreakNum     = 1,
   parameter bit          XInterface        = 1'b0
@@ -1046,6 +1047,7 @@ module cve2_core import cve2_pkg::*; #(
     assign vrf_waddr_wb = (vx_instr) ? rf_rdata_b[4:0]   : rf_waddr_wb;
     cve2_agu #(
       .AddrWidth(32),
+      .VRF_START_ADDR   (VRF_START_ADDR),
       .VLEN(VLEN)
     ) agu_i (
       .clk_i(clk_i),
