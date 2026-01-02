@@ -312,6 +312,7 @@ module cve2_id_stage #(
   logic varith_op;
   // vcfg
   logic [31:0]            imm_vcfg;
+  logic vcfg_write;
 
   ///////////////
   // ID-EX FSM //
@@ -416,10 +417,14 @@ module cve2_id_stage #(
     assign vrf_wdata_o = result_ex_i;
     assign vslide_op_a = (alu_op_a_mux_sel == OP_A_IMM) ? imm_a : rf_rdata_a_fwd;
     assign vslided_op_a = vslide_op_a << vsew_i;
+    // Conf VEC CSRs
+    assign vcfg_write_o = vcfg_write & instr_executing;
   end else begin
     assign vrf_wdata_o = '0;
     assign vslide_op_a = '0;
     assign vslided_op_a = '0;
+    // Conf VEC CSRS
+    assign vcfg_write_o = 1'b0;
   end
   assign varith_op = RV32VX && vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o;
 
@@ -682,7 +687,7 @@ module cve2_id_stage #(
     // vector immediates
     .imm_v_type_o(imm_v_type),
     // vector cfg setting instructions
-    .vcfg_write_o(vcfg_write_o),        // write enable for vector configuration
+    .vcfg_write_o(vcfg_write),        // write enable for vector configuration
     .imm_vcfg_o(imm_vcfg),              // immediate for vector configuration
     .vl_max_o(vl_max_o),                // set vl to VLMAX
     .vl_keep_o(vl_keep_o),              // keep current value of vl
