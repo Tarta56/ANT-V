@@ -88,7 +88,7 @@ targets:
   asic_synthesis:
     filesets:
       - files_rtl
-      - "cve2_synth ? files_tsmc65"
+      - "cve2_synth ? (files_tsmc65)"
     parameters:
       - SYNTHESIS=true
     default_tool: design_compiler

@@ -110,14 +110,18 @@ module cve2_ex_block #(
   // TODO: can use a flag to enable or disable it
   logic [31:0] multdiv_result_q;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      multdiv_result_q <= 32'b0;
-    end else begin
-      if (use_mult_add) begin
-        multdiv_result_q <= multdiv_result;
+  if (RV32VX) begin : gen_vec_mac_reg
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) begin
+        multdiv_result_q <= 32'b0;
+      end else begin
+        if (use_mult_add) begin
+          multdiv_result_q <= multdiv_result;
+        end
       end
     end
+  end else begin : gen_no_vec_mac_reg
+    assign multdiv_result_q = multdiv_result;
   end
 
 
@@ -166,6 +170,7 @@ module cve2_ex_block #(
     assign alu_operand_a = alu_operand_a_i;
     assign alu_operand_b = alu_operand_b_i;
     assign multdiv_operand_b = multdiv_operand_b_i;
+    assign use_mult_add = 1'b0;
   end
 
   /////////

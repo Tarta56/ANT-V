@@ -15,3 +15,31 @@ lint_off -rule UNUSED -file "*/rtl/cve2_multdiv_fast_fracturable.sv" -match "Bit
 lint_off -rule UNUSED -file "*/rtl/cve2_alu.sv" -match "Bits of signal are not used: 'vsew_i'[2]"
 
 lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_we_id'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'is_slide_up'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_*'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'agu_*'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vx_instr'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vl_keep'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'lsu_if_load_addr'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'is_slide_up'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'unit_stride'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vl_q'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vmem_ops_eew'"
+
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'vector_done_i'"
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'illegal_vec_csr_insn_i'"
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'vrf_*_i'"
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'vslide_op_a'"
+lint_off -rule UNUSED -file "*/rtl/cve2_id_stage.sv" -match "Signal is not used: 'vcfg_write'"
+
+lint_off -rule UNUSED -file "*/rtl/cve2_ex_block.sv" -match "Signal is not used: 'alu_operand_c_i'"
+lint_off -rule UNUSED -file "*/rtl/cve2_ex_block.sv" -match "Signal is not used: 'multdiv_operand_b'"
+lint_off -rule UNUSED -file "*/rtl/cve2_ex_block.sv" -match "Signal is not used: 'multdiv_result_q'"
+lint_off -rule UNUSED -file "*/rtl/cve2_ex_block.sv" -match "Signal is not used: 'use_mult_add'"
+
+lint_off -rule UNUSED -file "*/rtl/cve2_alu.sv" -match "Signal is not used: 'adder_ew'"
+
+lint_off -rule UNUSED -file "*/rtl/cve2_wb.sv" -match "Signal is not used: 'vrf*_i'"
+lint_off -rule UNUSED -file "*/rtl/cve2_wb.sv" -match "Signal is not used: 'vl*_i'"
+
+

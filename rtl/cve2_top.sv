@@ -20,9 +20,9 @@ module cve2_top import cve2_pkg::*; #(
   parameter bit          RV32E            = 1'b0,
   parameter rv32m_e      RV32M            = RV32MSingleCycle,
   // Enable custom vector extension support
-  parameter bit          RV32VX           = 1'b1,
+  parameter bit          RV32VX           = 1'b0,
   parameter int unsigned VLEN             = cve2_pkg::VLENb,
-  parameter int unsigned VRF_START_ADDR   = cve2_pkg::VRF_START_ADDR,
+  parameter int unsigned VRF_START_ADDR   = cve2_pkg::VRF_START_ADDR_FULL,
   parameter bit          XInterface       = 1'b0
 ) (
   // Clock and Reset
