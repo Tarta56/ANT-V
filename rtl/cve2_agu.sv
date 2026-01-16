@@ -111,14 +111,14 @@ module cve2_agu #(
     //end
     always_comb begin
         if (load_i && is_slide_i) begin
-            slide_start_addr_o = {VRF_START_ADDR[31-5-VRegAddrWidth:0], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
+            slide_start_addr_o = {VRF_START_ADDR[31:VRegAddrWidth+5], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
         end else begin
             slide_start_addr_o = '0;
         end
         // chain 2 0s for byte alignment
-        mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rs1_i[4:3], addr_rs1_q, 2'b00} :
-                        get_rs2_i ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rs2_i[4:3], addr_rs2_q, 2'b00} :
-                        get_rd_i  ? {VRF_START_ADDR[31-5-VRegAddrWidth:0], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
+        mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR[31:VRegAddrWidth+5], rs1_i[4:3], addr_rs1_q, 2'b00} :
+                        get_rs2_i ? {VRF_START_ADDR[31:VRegAddrWidth+5], rs2_i[4:3], addr_rs2_q, 2'b00} :
+                        get_rd_i  ? {VRF_START_ADDR[31:VRegAddrWidth+5], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
     end
     
 endmodule
