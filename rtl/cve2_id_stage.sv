@@ -466,15 +466,24 @@ module cve2_id_stage #(
       OP_A_CURRPC:  alu_operand_a = pc_id_i;
 
       OP_A_IMM: begin
-        alu_operand_a = imm_a;
-        if (RV32VX && slide_addr_req_i) begin
-          alu_operand_a = vslided_op_a;   // Support for vector slide immediate
-        end else if (varith_op) begin
+        //alu_operand_a = imm_a;
+        //if (RV32VX && slide_addr_req_i) begin
+        //  alu_operand_a = vslided_op_a;   // Support for vector slide immediate
+        //end else if (varith_op) begin
+        //  case (vsew_i)
+        //    VSEW_8:   alu_operand_a = {imm_a[7:0], imm_a[7:0], imm_a[7:0], imm_a[7:0]};
+        //    VSEW_16:  alu_operand_a = {imm_a[15:0], imm_a[15:0]};
+        //    default:  alu_operand_a = imm_a;
+        //  endcase
+        //alu_operand_a = imm_a;
+        if (varith_op) begin
           case (vsew_i)
             VSEW_8:   alu_operand_a = {imm_a[7:0], imm_a[7:0], imm_a[7:0], imm_a[7:0]};
             VSEW_16:  alu_operand_a = {imm_a[15:0], imm_a[15:0]};
             default:  alu_operand_a = imm_a;
           endcase
+        end else begin
+          alu_operand_a = slide_addr_req_i ? vslided_op_a : imm_a;   // Support for vector slide immediate
         end
         //if (vrf_req_o && !vrf_memory_op_o && !vrf_slide_op_o) begin
         //  case (vsew_i)
