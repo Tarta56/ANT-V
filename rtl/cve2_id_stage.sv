@@ -525,7 +525,8 @@ module cve2_id_stage #(
       IMM_B_U,
       IMM_B_J,
       IMM_B_INCR_PC,
-      IMM_B_INCR_ADDR})
+      IMM_B_INCR_ADDR,
+      IMM_B_VCFG})
 
   // ALU MUX for Operand B - Modified to include vector register
   // it has been modified to correctly handle immediate and scalar values when SEW<32 for vector instructions
