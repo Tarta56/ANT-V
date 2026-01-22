@@ -10,7 +10,7 @@ filesets:
     depend:
       - openhwgroup:cve2:cve2_top
       - openhwgroup:cve2:cve2_tracer
-      - openhwgroup:cve2:cve2_clock_gate
+      - "!SYNTHESIS ? (openhwgroup:cve2:cve2_clock_gate)"
     files:
       - rtl/cve2_top_tracing.sv
     file_type: systemVerilogSource
