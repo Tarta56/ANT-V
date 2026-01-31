@@ -1000,6 +1000,7 @@ module cve2_core import cve2_pkg::*; #(
       // LSU control signals
       .data_load_addr_o(lsu_if_load_addr),
       .lsu_gnt_i(vrf_lsu_gnt),
+      .lsu_offset_i(lsu_if_addr[1:0]),
 
       // AGU signals
       .agu_load_o(agu_load),

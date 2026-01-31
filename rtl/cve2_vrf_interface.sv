@@ -41,7 +41,7 @@ module cve2_vrf_interface #(
     // LSU control signals
     output logic         data_load_addr_o,  // loads the address for the memory operation in a counter
     input  logic         lsu_gnt_i,         // grant of LSU, if not immediately given for a write we sample the result/operand
-
+    input  logic [1:0]   lsu_offset_i,      // offset provided by the LSU in case of misaligned access
     // AGU
     output logic         agu_load_o,
     output logic         agu_get_rs1_o,
@@ -89,6 +89,7 @@ module cve2_vrf_interface #(
   logic rs1_en, rs2_en, rs3_en, rd_en;    // rd is used only for load operations
   logic [PIPE_WIDTH-1:0] rs1_q, rs2_q, rs3_q, rd_q;
   logic [PIPE_WIDTH-1:0] rs1_d, rs2_d, rs3_d, rd_d;
+  logic [PIPE_WIDTH-1:0] rs3_d_1, rs3_q_1;
 
   // Delayed grant for read operations in store
   logic read_delayed;
@@ -109,6 +110,11 @@ module cve2_vrf_interface #(
   logic sel_slide_be;                             // signal used to select the correct byte-enable for the first write operation
   logic [3:0] slide_offset_be;
   logic no_offset_first;
+
+  // Handle misaligned sub-word mem accesses
+  // TODO: only store are supported and tested for now (to improve with load)
+  logic curr_demux_sel, next_demux_sel;
+  logic mux_sel;
 
   //////////////////
   // BE selector  //
@@ -205,12 +211,14 @@ module cve2_vrf_interface #(
       last_iteration_q <= 1'b0;
       slide_offset_q <= '0;
       slide_first_write_q <= 1'b0;
+      curr_demux_sel <= 1'b0;
     end else begin
       vrf_state <= vrf_next_state;
       num_iterations_q <= num_iterations_d;
       offset_q <= offset_d;
       first_iteration_q <= first_iteration_d;
       last_iteration_q <= last_iteration_d;
+      curr_demux_sel <= next_demux_sel;
       if (slide_offset_en) slide_offset_q <= slide_offset_i[1:0];
       slide_first_write_q <= slide_first_write_d;
     end
@@ -248,11 +256,15 @@ module cve2_vrf_interface #(
     // LSU signals
     lsu_req_o = 1'b0;
     data_load_addr_o = 1'b0;
+    // Demux to handle sub-word mem accesses
+    next_demux_sel = curr_demux_sel;
+    mux_sel = '0;
 
     case (vrf_state)
 
       VRF_IDLE: begin
         last_iteration_d = 1'b0;
+        next_demux_sel = 1'b0;
         // VRF stays idle until a request is made
         if (!req_i) begin
           vrf_next_state = VRF_IDLE;
@@ -606,15 +618,29 @@ module cve2_vrf_interface #(
           if (data_rvalid_i) rs3_en = 1;
           if (!first_iteration_q) begin
             lsu_req_o = 1;
+            // TODO: last iteration may break if we do not handle mux and demux carefully
+            if (lsu_offset_i != 2'b00) begin
+              mux_sel = ~curr_demux_sel; // TODO: check
+            end
             if (!lsu_gnt_i) read_delayed = 1'b1;
           end
           vrf_next_state = VRF_STORE_WAITLSU;
+        //end else if (!first_iteration_q && lsu_offset_i!= 2'b00) begin
+        //  // in case of misaligned access we need to wait for the LSU to finish
+        //    lsu_req_o = 1;
+        //    if (!lsu_gnt_i) read_delayed = 1'b1;
+        //    vrf_next_state = VRF_STORE_WAITLSU;
         end else begin
           vrf_next_state = VRF_STORE_READ;
         end
       end
 
       VRF_STORE_WAITLSU: begin
+        // If the access is misaligned we need to wait for the LSU to finish
+        // before reading the next data
+        if (lsu_offset_i != 2'b00) begin
+            mux_sel = ~curr_demux_sel; // keep constant out mux selection
+        end
         if (lsu_done_i || first_iteration_q) begin
           first_iteration_d = 1'b0;
           read_delayed = 1'b0;
@@ -627,12 +653,22 @@ module cve2_vrf_interface #(
           end else if (num_iterations_q == (no_offset ? 1 : 0)) begin
             last_iteration_d = 1'b1;
             vrf_next_state = VRF_STORE_READ;
+            if (lsu_offset_i != 2'b00 && lsu_done_i) begin
+              next_demux_sel = ~curr_demux_sel; // TODO: check
+            end
           // Send read request to memory
+          //end else if (lsu_offset_i != 2'b00 && first_iteration_q) begin //!lsu_done_i
+          //  // do the request to the LSU and wait until done
+          //  vrf_next_state = VRF_STORE_READ;
           end else begin
             num_iterations_d = num_iterations_q - 1;
             data_req_o = 1'b1;
             agu_get_rd_o = 1'b1;
             if (data_gnt_i) begin
+              if (lsu_offset_i != 2'b00) begin
+                // Request is for the same data (previous read data already consumed)
+                next_demux_sel = ~curr_demux_sel;
+              end 
               agu_incr_o = 1'b1;
               vrf_next_state = VRF_STORE_READ;
             end else begin
@@ -699,7 +735,7 @@ module cve2_vrf_interface #(
   ///////////////////////////
 
   // Delayed write buffer
-  assign buffer_d = read_delayed ? rs3_q : rd_q;
+  assign buffer_d = read_delayed ? ((mux_sel) ? rs3_q_1 : rs3_q) : rd_q;
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       curr_state_delay <= 2'b00;
@@ -759,19 +795,26 @@ module cve2_vrf_interface #(
       rs1_q <= '0;
       rs2_q <= '0;
       rs3_q <= '0;
+      rs3_q_1 <= '0;
       rd_q  <= '0;
     end else begin
       if (rs1_en) rs1_q <= rs1_d;
       if (rs2_en) rs2_q <= rs2_d;
-      if (rs3_en) rs3_q <= rs3_d;
+      if (rs3_en && curr_demux_sel == 0) begin
+        rs3_q <= rs3_d;
+      end
+      if (rs3_en && curr_demux_sel == 1) begin
+        rs3_q_1 <= rs3_d_1;
+      end
       if (rd_en || rd_buf_en) rd_q <= rd_d;
     end
   end
   always_comb begin
-    rs1_d = data_rdata_i;
-    rs2_d = slide_op_i ? slide_rdata : data_rdata_i;
-    rs3_d = data_rdata_i;
-    rd_d = wdata_i;
+    rs1_d   = data_rdata_i;
+    rs2_d   = slide_op_i ? slide_rdata : data_rdata_i;
+    rs3_d   = data_rdata_i;
+    rs3_d_1 = data_rdata_i;
+    rd_d    = wdata_i;
   end
 
   /////////////
@@ -780,7 +823,7 @@ module cve2_vrf_interface #(
 
   assign rdata_a_o = rs1_q;
   assign rdata_b_o = rs2_q;
-  assign rdata_c_o = rdata_mux ? buffer_q : rs3_q;
+  assign rdata_c_o = rdata_mux ? buffer_q : ((mux_sel) ? rs3_q_1 : rs3_q);
   // mux for the write data
   always_comb begin
     case (wdata_mux)
