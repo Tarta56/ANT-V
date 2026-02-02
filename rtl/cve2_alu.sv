@@ -139,7 +139,8 @@ module cve2_alu #(
   ////////////////
 
   logic is_equal;
-  logic is_greater_equal;  // handles both signed and unsigned forms
+  // bit 3:1 used only in rv32vx mode
+  logic [3:0] is_greater_equal;  // handles both signed and unsigned forms
   logic cmp_signed;
 
   always_comb begin
@@ -160,10 +161,70 @@ module cve2_alu #(
 
   // Is greater equal
   always_comb begin
-    if ((operand_a_i[31] ^ operand_b_i[31]) == 1'b0) begin
-      is_greater_equal = (adder_result[31] == 1'b0);
+    // Distinguish vec subword ops
+    is_greater_equal = '0;
+    if (RV32VX && vec_instr_i && !mem_op_i) begin
+      // 8-bit case
+      if (adder_ew == 2'b00) begin
+        if ((operand_a_i[7] ^ operand_b_i[7]) == 1'b0) begin
+          is_greater_equal[0] = (adder_result[7] == 1'b0);
+        end else begin
+          is_greater_equal[0] = operand_a_i[7] ^ (cmp_signed);
+        end
+        if ((operand_a_i[15] ^ operand_b_i[15]) == 1'b0) begin
+          is_greater_equal[1] = (adder_result[15] == 1'b0);
+        end else begin
+          is_greater_equal[1] = operand_a_i[15] ^ (cmp_signed);
+        end
+        if ((operand_a_i[23] ^ operand_b_i[23]) == 1'b0) begin
+          is_greater_equal[2] = (adder_result[23] == 1'b0);
+        end else begin
+          is_greater_equal[2] = operand_a_i[23] ^ (cmp_signed);
+        end
+        if ((operand_a_i[31] ^ operand_b_i[31]) == 1'b0) begin
+          is_greater_equal[3] = (adder_result[31] == 1'b0);
+        end else begin
+          is_greater_equal[3] = operand_a_i[31] ^ (cmp_signed);
+        end
+      end else if (adder_ew == 2'b01) begin
+        if ((operand_a_i[15] ^ operand_b_i[15]) == 1'b0) begin
+          is_greater_equal[0] = (adder_result[15] == 1'b0);
+          is_greater_equal[1] = is_greater_equal[0];
+        end else begin
+          is_greater_equal[0] = operand_a_i[15] ^ (cmp_signed);
+          is_greater_equal[1] = is_greater_equal[0];
+        end
+         if ((operand_a_i[31] ^ operand_b_i[31]) == 1'b0) begin
+          is_greater_equal[2] = (adder_result[31] == 1'b0);
+          is_greater_equal[3] = is_greater_equal[2];
+        end else begin
+          is_greater_equal[2] = operand_a_i[31] ^ (cmp_signed);
+          is_greater_equal[3] = is_greater_equal[2];
+        end
+      end else begin
+        // 32-bit case
+        if ((operand_a_i[31] ^ operand_b_i[31]) == 1'b0) begin
+          is_greater_equal[0] = (adder_result[31] == 1'b0);
+          is_greater_equal[1] = (adder_result[31] == 1'b0);
+          is_greater_equal[2] = (adder_result[31] == 1'b0);
+          is_greater_equal[3] = (adder_result[31] == 1'b0);
+        end else begin
+          is_greater_equal[0] = operand_a_i[31] ^ (cmp_signed);
+          is_greater_equal[1] = is_greater_equal[0];
+          is_greater_equal[2] = is_greater_equal[0];
+          is_greater_equal[3] = is_greater_equal[0];
+        end
+      end
+    end else if ((operand_a_i[31] ^ operand_b_i[31]) == 1'b0) begin
+      is_greater_equal[0] = (adder_result[31] == 1'b0);
+      is_greater_equal[1] = is_greater_equal[0];
+      is_greater_equal[2] = is_greater_equal[0];
+      is_greater_equal[3] = is_greater_equal[0];
     end else begin
-      is_greater_equal = operand_a_i[31] ^ (cmp_signed);
+      is_greater_equal[0] = operand_a_i[31] ^ (cmp_signed);
+      is_greater_equal[1] = is_greater_equal[0];
+      is_greater_equal[2] = is_greater_equal[0];
+      is_greater_equal[3] = is_greater_equal[0];
     end
   end
 
@@ -180,23 +241,24 @@ module cve2_alu #(
   // (a[31] == 0 && b[31] == 1) => 1
 
   // generate comparison result
-  logic cmp_result;
-
+  logic [3:0] cmp_result;
+  
   always_comb begin
+    cmp_result = '0;
     unique case (operator_i)
-      ALU_EQ:             cmp_result =  is_equal;
-      ALU_NE:             cmp_result = ~is_equal;
+      ALU_EQ:             cmp_result[0] =  is_equal;
+      ALU_NE:             cmp_result[0] = ~is_equal;
       ALU_GE,   ALU_GEU,
       ALU_MAX,  ALU_MAXU: cmp_result = is_greater_equal; // RV32B only
       ALU_LT,   ALU_LTU,
       ALU_MIN,  ALU_MINU, //RV32B only
       ALU_SLT,  ALU_SLTU: cmp_result = ~is_greater_equal;
 
-      default: cmp_result = is_equal;
+      default: cmp_result[0] = is_equal;
     endcase
   end
 
-  assign comparison_result_o = cmp_result;
+  assign comparison_result_o = cmp_result[0]; // not used by vec extension, only needed for branch
 
   ///////////
   // Shift //
@@ -570,12 +632,6 @@ module cve2_alu #(
         bitcnt_partial[i] = bitcnt_partial[i-1] + {5'h0, bitcnt_bits[i]};
       end
     end
-
-    ///////////////
-    // Min / Max //
-    ///////////////
-
-    assign minmax_result = cmp_result ? operand_a_i : operand_b_i;
 
     //////////
     // Pack //
@@ -1322,7 +1378,6 @@ module cve2_alu #(
     assign unused_invbutterfly_result = invbutterfly_result;
     // RV32B result signals
     assign bitcnt_result       = '0;
-    assign minmax_result       = '0;
     assign pack_result         = '0;
     assign sext_result         = '0;
     assign singlebit_result    = '0;
@@ -1337,6 +1392,28 @@ module cve2_alu #(
     assign imd_val_d_o         = '{default: '0};
     assign imd_val_we_o        = '{default: '0};
   end
+
+    ///////////////
+    // Min / Max //
+    ///////////////
+    always_comb begin
+      if (RV32VX) begin
+        if (vec_instr_i && !mem_op_i) begin
+          minmax_result[31:24] = cmp_result[3] ? operand_a_i[31:24] : operand_b_i[31:24];
+          minmax_result[23:16] = cmp_result[2] ? operand_a_i[23:16] : operand_b_i[23:16];
+          minmax_result[15:8]  = cmp_result[1] ? operand_a_i[15:8]  : operand_b_i[15:8];
+          minmax_result[7:0]   = cmp_result[0] ? operand_a_i[7:0]   : operand_b_i[7:0];
+        end else begin
+          minmax_result = cmp_result[0] ? operand_a_i : operand_b_i;
+        end
+      end else begin
+        if (RV32B != RV32BNone) begin
+          minmax_result = cmp_result[0] ? operand_a_i : operand_b_i;
+        end else
+          minmax_result = 32'h0;
+      end
+    end
+
 
   ////////////////
   // Result mux //
@@ -1378,7 +1455,7 @@ module cve2_alu #(
       ALU_EQ,   ALU_NE,
       ALU_GE,   ALU_GEU,
       ALU_LT,   ALU_LTU,
-      ALU_SLT,  ALU_SLTU: result_o = {31'h0,cmp_result};
+      ALU_SLT,  ALU_SLTU: result_o = {31'h0,cmp_result[0]};
 
       // MinMax Operations (RV32B)
       ALU_MIN,  ALU_MAX,
