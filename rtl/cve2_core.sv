@@ -1208,10 +1208,10 @@ module cve2_core import cve2_pkg::*; #(
     );
   end else begin : gen_no_csr_vec
     // Hardwire all outputs to 0 
-    assign vrf_vsew = 3'b0;
-    assign vrf_vlmul = 2'b0;
+    assign vrf_vsew = vsew_e'(0);
+    assign vrf_vlmul = vlmul_e'(0);
     assign vl_d = 32'b0;
-    assign vsew_q = 3'b0;
+    assign vsew_q = vsew_e'(0);
     //assign vlmul_q = 2'b0;
     assign vl_q = 32'b0;
     assign illegal_vec_csr_insn = 1'b0;

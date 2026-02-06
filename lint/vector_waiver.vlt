@@ -14,6 +14,9 @@ lint_off -rule UNUSED -file "*/rtl/cve2_agu.sv" -match "Bits of signal are not u
 lint_off -rule UNUSED -file "*/rtl/cve2_multdiv_fast_fracturable.sv" -match "Bits of signal are not used: 'mac_res_d_sca'[33:32]"
 lint_off -rule UNUSED -file "*/rtl/cve2_alu.sv" -match "Bits of signal are not used: 'vsew_i'[2]"
 
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_raddr*'"
+lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_waddr*'"
+
 lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_we_id'"
 lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'is_slide_up'"
 lint_off -rule UNUSED -file "*/rtl/cve2_core.sv" -match "Signal is not used: 'vrf_*'"
