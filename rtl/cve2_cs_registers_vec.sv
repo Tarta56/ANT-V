@@ -218,8 +218,8 @@ module cve2_cs_registers_vec
           mem_eew = VSEW_8;
           unique case (vsew_q)
             VSEW_8: mem_lmul = vlmul_q;
-            VSEW_16: mem_lmul = vlmul_q-1;
-            VSEW_32: mem_lmul = vlmul_q-2;
+            VSEW_16: mem_lmul = vlmul_e'($signed(vlmul_q)-1);
+            VSEW_32: mem_lmul = vlmul_e'($signed(vlmul_q)-2);
             default: begin
               illegal_mem_eew = 1'b1;
             end
@@ -228,9 +228,9 @@ module cve2_cs_registers_vec
         3'b101: begin
           mem_eew = VSEW_16;
           unique case (vsew_q)
-            VSEW_8: mem_lmul = vlmul_q+1;
+            VSEW_8: mem_lmul = vlmul_e'($signed(vlmul_q)+1);
             VSEW_16: mem_lmul = vlmul_q;
-            VSEW_32: mem_lmul = vlmul_q-1;
+            VSEW_32: mem_lmul = vlmul_e'($signed(vlmul_q)-1);
             default: begin
               illegal_mem_eew = 1'b1;
             end
@@ -239,8 +239,8 @@ module cve2_cs_registers_vec
         3'b110: begin
           mem_eew = VSEW_32;
           unique case (vsew_q)
-            VSEW_8: mem_lmul = vlmul_q+2;
-            VSEW_16: mem_lmul = vlmul_q+1;
+            VSEW_8: mem_lmul = vlmul_e'($signed(vlmul_q)+2);
+            VSEW_16: mem_lmul = vlmul_e'($signed(vlmul_q)+1);
             VSEW_32: mem_lmul = vlmul_q;
             default: begin
               illegal_mem_eew = 1'b1;
