@@ -115,6 +115,7 @@ module cve2_vrf_interface #(
   // TODO: only store are supported and tested for now (to improve with load)
   logic curr_demux_sel, next_demux_sel;
   logic mux_sel;
+  logic [1:0] lsu_offset_q;
 
   //////////////////
   // BE selector  //
@@ -619,7 +620,7 @@ module cve2_vrf_interface #(
           if (!first_iteration_q) begin
             lsu_req_o = 1;
             // TODO: last iteration may break if we do not handle mux and demux carefully
-            if (lsu_offset_i != 2'b00) begin
+            if (lsu_offset_q != 2'b00) begin
               mux_sel = ~curr_demux_sel; // TODO: check
             end
             if (!lsu_gnt_i) read_delayed = 1'b1;
@@ -638,7 +639,7 @@ module cve2_vrf_interface #(
       VRF_STORE_WAITLSU: begin
         // If the access is misaligned we need to wait for the LSU to finish
         // before reading the next data
-        if (lsu_offset_i != 2'b00) begin
+        if (lsu_offset_q != 2'b00) begin
             mux_sel = ~curr_demux_sel; // keep constant out mux selection
         end
         if (lsu_done_i || first_iteration_q) begin
@@ -653,7 +654,7 @@ module cve2_vrf_interface #(
           end else if (num_iterations_q == (no_offset ? 1 : 0)) begin
             last_iteration_d = 1'b1;
             vrf_next_state = VRF_STORE_READ;
-            if (lsu_offset_i != 2'b00 && lsu_done_i) begin
+            if (lsu_offset_q != 2'b00 && lsu_done_i) begin
               next_demux_sel = ~curr_demux_sel; // TODO: check
             end
           // Send read request to memory
@@ -665,7 +666,7 @@ module cve2_vrf_interface #(
             data_req_o = 1'b1;
             agu_get_rd_o = 1'b1;
             if (data_gnt_i) begin
-              if (lsu_offset_i != 2'b00) begin
+              if (lsu_offset_q != 2'b00) begin
                 // Request is for the same data (previous read data already consumed)
                 next_demux_sel = ~curr_demux_sel;
               end 
@@ -788,6 +789,16 @@ module cve2_vrf_interface #(
   ////////////////////////
   // Internal registers //
   ////////////////////////
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      lsu_offset_q <= '0;
+    end else begin
+      if (vrf_state == VRF_START) begin
+        lsu_offset_q <= lsu_offset_i;
+      end
+    end
+  end
 
   // Operands and result registers
   always_ff @(posedge clk_i or negedge rst_ni) begin

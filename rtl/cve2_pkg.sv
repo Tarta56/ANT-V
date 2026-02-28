@@ -13,7 +13,7 @@ package cve2_pkg;
   // Vector Extension //
   //////////////////////
 
-  localparam logic [31:0] VLENb               = 32'd2056; // Vector register file length in bits
+  localparam logic [31:0] VLENb               = 32'd4096; // Vector register file length in bits
   localparam int unsigned VAddrWidth          = $clog2(VLENb / 8);
   localparam logic [31:0] VRF_START_ADDR_FULL = 32'h00020000;
   
@@ -225,9 +225,9 @@ package cve2_pkg;
     // Vector extension
     ALU_MOVE,
     ALU_MAC,
-    ALU_NMSAC,
-    ALU_MADD,
-    ALU_NMSUB,
+    //ALU_NMSAC,
+    //ALU_MADD,
+    //ALU_NMSUB,
     ALU_SLIDE,
 
     // Cyclic Redundancy Check
