@@ -2,7 +2,8 @@
 // Copyright 2018 ETH Zurich and University of Bologna, see also CREDITS.md.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-// Modified by Alessio Caviglia to support dotp (in single cycle mode only)
+// Modified by Alessio Caviglia and Flavia Guella to support dotp (in single cycle mode only)
+
 
 `define OP_L 15:0
 `define OP_H 31:16
@@ -163,101 +164,74 @@ module cve2_multdiv_fast_fracturable import cve2_pkg::*; #(
     logic               mult3_sign_a, mult3_sign_b;
     logic [33:0]        summand1, summand2, summand3;     // partial result to be summed up
     // additional signal to make it fracturable
-    logic [15:0]        mult1_op_a_sca, mult1_op_b_sca;           // 16-bit operands of three mults
-    logic [15:0]        mult2_op_a_sca, mult2_op_b_sca;
+    //logic [15:0]        mult1_op_a_sca, mult1_op_b_sca;           // 16-bit operands of three mults
+    //logic [15:0]        mult2_op_a_sca, mult2_op_b_sca;
     logic [15:0]        mult3_op_a_sca, mult3_op_b_sca;
-    logic [15:0]        mult1_op_a_vec, mult1_op_b_vec;           // 16-bit operands of three mults
-    logic [15:0]        mult2_op_a_vec, mult2_op_b_vec;
-    logic [15:0]        mult3_op_a_vec, mult3_op_b_vec;
+    //logic [15:0]        mult1_op_a_vec, mult1_op_b_vec;           // 16-bit operands of three mults
+    //logic [15:0]        mult2_op_a_vec, mult2_op_b_vec;
+    //logic [15:0]        mult3_op_a_vec, mult3_op_b_vec;
     logic [7:0]         mult4_res;
-    logic               mult1_sign_a_sca, mult1_sign_b_sca;       // sign bits of three mults
-    logic               mult2_sign_a_sca, mult2_sign_b_sca;
+    //logic               mult1_sign_a_sca, mult1_sign_b_sca;       // sign bits of three mults
+    //logic               mult2_sign_a_sca, mult2_sign_b_sca;
     logic               mult3_sign_a_sca, mult3_sign_b_sca;
-    logic               mult1_sign_a_vec, mult1_sign_b_vec;       // sign bits of three mults
-    logic               mult2_sign_a_vec, mult2_sign_b_vec;
-    logic               mult3_sign_a_vec, mult3_sign_b_vec;
+    //logic               mult1_sign_a_vec, mult1_sign_b_vec;       // sign bits of three mults
+    //logic               mult2_sign_a_vec, mult2_sign_b_vec;
+    //logic               mult3_sign_a_vec, mult3_sign_b_vec;
     logic [31:0]        mult_res_vec;
     logic [33:0]        mac_res_d_sca;
 
     
-    // INPUT MULTIPLEXERS
-    always_comb begin
-      mult1_op_a_vec = '0;
-      mult1_op_b_vec = '0;
-      mult2_op_a_vec = '0;
-      mult2_op_b_vec = '0;
-      mult3_op_a_vec = '0;
-      mult3_op_b_vec = '0;
-      mult1_sign_a_vec = 1'b0;
-      mult1_sign_b_vec = 1'b0;
-      mult2_sign_a_vec = 1'b0;
-      mult2_sign_b_vec = 1'b0;
-      mult3_sign_a_vec = 1'b0;
-      mult3_sign_b_vec = 1'b0;
-      case (vsew_i)
-        VSEW_8: begin
-          // operands are sign extended to 16 bits - not sure this will work
-          mult1_op_a_vec = {{8{op_a_i[7]}}, op_a_i[`OP_LL]};
-          mult1_op_b_vec = {{8{op_b_i[7]}}, op_b_i[`OP_LL]};
-          mult2_op_a_vec = {{8{op_a_i[15]}}, op_a_i[`OP_LH]};
-          mult2_op_b_vec = {{8{op_b_i[15]}}, op_b_i[`OP_LH]};
-          mult3_op_a_vec = {{8{op_a_i[23]}}, op_a_i[`OP_HL]};
-          mult3_op_b_vec = {{8{op_b_i[23]}}, op_b_i[`OP_HL]};
-          // the sign bits are the sign bits of the operands
-          mult1_sign_a_vec = op_a_i[7];
-          mult1_sign_b_vec = op_b_i[7];
-          mult2_sign_a_vec = op_a_i[15];
-          mult2_sign_b_vec = op_b_i[15];
-          mult3_sign_a_vec = op_a_i[23];
-          mult3_sign_b_vec = op_b_i[23];
-        end
-        VSEW_16: begin
-          // I only need wo multipliers for this case
-          mult1_op_a_vec = op_a_i[`OP_L];
-          mult1_op_b_vec = op_b_i[`OP_L];
-          mult2_op_a_vec = op_a_i[`OP_H];
-          mult2_op_b_vec = op_b_i[`OP_H];
-          // the sign is the same as the operands
-          mult1_sign_a_vec = op_a_i[15];
-          mult1_sign_b_vec = op_b_i[15];
-        end
-        VSEW_32: begin
-          // all assignments are the same as the scalar case
-        end
-        default: begin
-        end
-      endcase
+ always_comb begin
+    mult3_sign_a = mult3_sign_a_sca;
+    mult3_sign_b = mult3_sign_b_sca;
+    mult3_op_a = mult3_op_a_sca;
+    mult3_op_b = mult3_op_b_sca;
+    if (vec_instr_i && vsew_i == VSEW_8) begin
+      // operands are sign extended to 16 bits
+      mult1_op_a = {{8{op_a_i[7]}}, op_a_i[`OP_LL]};
+      mult1_op_b = {{8{op_b_i[7]}}, op_b_i[`OP_LL]};
+      mult2_op_a = {{8{op_a_i[15]}}, op_a_i[`OP_LH]};
+      mult2_op_b = {{8{op_b_i[15]}}, op_b_i[`OP_LH]};
+      mult3_op_a = {{8{op_a_i[23]}}, op_a_i[`OP_HL]};
+      mult3_op_b = {{8{op_b_i[23]}}, op_b_i[`OP_HL]};
+      // the sign bits are the sign bits of the operands
+      mult1_sign_a = op_a_i[7];
+      mult1_sign_b = op_b_i[7];
+      mult2_sign_a = op_a_i[15];
+      mult2_sign_b = op_b_i[15];
+      mult3_sign_a = op_a_i[23];
+      mult3_sign_b = op_b_i[23];
+    end else if (vec_instr_i && vsew_i == VSEW_16) begin
+      mult1_op_a = op_a_i[`OP_L];
+      mult1_op_b = op_b_i[`OP_L];
+      mult2_op_a = op_a_i[`OP_H];
+      mult2_op_b = op_b_i[`OP_H];
+      //mult3_op_a = '0;
+      //mult3_op_b = '0;
+      // the sign is the same as the operands
+      mult1_sign_a = op_a_i[15];
+      mult1_sign_b = op_b_i[15];
+      mult2_sign_a = op_a_i[31];
+      mult2_sign_b = op_b_i[31];
+      //mult3_sign_a = 1'b0;
+      //mult3_sign_b = 1'b0;
+    end else begin
+      // 32 bit and scalar case
+      mult1_op_a = op_a_i[`OP_L];
+      mult1_op_b = op_b_i[`OP_L];
+      mult2_op_a = op_a_i[`OP_L];
+      mult2_op_b = op_b_i[`OP_H];
+      //mult3_op_a = mult3_op_a_sca;
+      //mult3_op_b = mult3_op_b_sca;
+      mult1_sign_a = 1'b0;
+      mult1_sign_b = 1'b0;
+      mult2_sign_a =  1'b0;
+      mult2_sign_b = sign_b;
+      //mult3_sign_a = mult3_sign_a_sca;
+      //mult3_sign_b = mult3_sign_b_sca;
     end
-
-    always_comb begin
-      if (vec_instr_i && vsew_i!=VSEW_32) begin     // VSEW 8 or 16
-        mult1_op_a = mult1_op_a_vec;
-        mult1_op_b = mult1_op_b_vec;
-        mult2_op_a = mult2_op_a_vec;
-        mult2_op_b = mult2_op_b_vec;
-        mult3_op_a = mult3_op_a_vec;
-        mult3_op_b = mult3_op_b_vec;
-        mult1_sign_a = mult1_sign_a_vec;
-        mult1_sign_b = mult1_sign_b_vec;
-        mult2_sign_a = mult2_sign_a_vec;
-        mult2_sign_b = mult2_sign_b_vec;
-        mult3_sign_a = mult3_sign_a_vec;
-        mult3_sign_b = mult3_sign_b_vec;
-      end else begin                                // VSEW 32 or scalar
-        mult1_op_a = mult1_op_a_sca;
-        mult1_op_b = mult1_op_b_sca;
-        mult2_op_a = mult2_op_a_sca;
-        mult2_op_b = mult2_op_b_sca;
-        mult3_op_a = mult3_op_a_sca;
-        mult3_op_b = mult3_op_b_sca;
-        mult1_sign_a = mult1_sign_a_sca;
-        mult1_sign_b = mult1_sign_b_sca;
-        mult2_sign_a = mult2_sign_a_sca;
-        mult2_sign_b = mult2_sign_b_sca;
-        mult3_sign_a = mult3_sign_a_sca;
-        mult3_sign_b = mult3_sign_b_sca;
-      end
-    end
+ end
+    
 
     // MULTIPLIERS
     // Three 17-bit multipliers
@@ -297,17 +271,7 @@ module cve2_multdiv_fast_fracturable import cve2_pkg::*; #(
     assign mac_res_d = {2'b00, (vec_instr_i && vsew_i!=VSEW_32) ? mult_res_vec : mac_res_d_sca[31:0]};
 
     // The first two multipliers are only used in state 1 (MULL). We can assign them statically.
-    // al*bl
-    assign mult1_sign_a_sca = 1'b0;
-    assign mult1_sign_b_sca = 1'b0;
-    assign mult1_op_a_sca = op_a_i[`OP_L];
-    assign mult1_op_b_sca = op_b_i[`OP_L];
 
-    // al*bh
-    assign mult2_sign_a_sca = 1'b0;
-    assign mult2_sign_b_sca = sign_b;
-    assign mult2_op_a_sca = op_a_i[`OP_L];
-    assign mult2_op_b_sca = op_b_i[`OP_H];
 
     // used in MULH
     assign accum[17:0] = imd_val_q_i[0][33:16];
