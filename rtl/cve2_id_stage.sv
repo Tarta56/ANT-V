@@ -310,6 +310,13 @@ module cve2_id_stage #(
   logic                   stall_vec;
   logic [31:0]            imm_v_type;
   logic varith_op;
+  logic vrf_req;
+  logic vrf_slide_op;
+  logic is_slide_up;
+  logic unit_stride;
+  logic vl_keep;
+  logic [2:0]vmem_ops_eew;
+
   // vcfg
   logic [31:0]            imm_vcfg;
   logic vcfg_write;
@@ -691,13 +698,13 @@ module cve2_id_stage #(
     
     // VECTOR EXTENSION
     // vector register file
-    .vrf_req_o(vrf_req_o),  // used both for VRF and to signal vector instructions since all of those who needs to stall uses VRF
+    .vrf_req_o(vrf_req),  // used both for VRF and to signal vector instructions since all of those who needs to stall uses VRF
     .vrf_we_o(vrf_we_id_o),
     .vrf_sel_operation_o(vrf_sel_operation_o),
     .vrf_memory_op_o(vrf_memory_op_o),
     .vrf_mult_ops_o(vrf_mult_ops_o),
-    .vrf_slide_op_o(vrf_slide_op_o),
-    .is_slide_up_o(is_slide_up_o),
+    .vrf_slide_op_o(vrf_slide_op),
+    .is_slide_up_o(is_slide_up),
     .vx_instr_o(vx_instr_o),
     // vector immediates
     .imm_v_type_o(imm_v_type),
@@ -705,15 +712,31 @@ module cve2_id_stage #(
     .vcfg_write_o(vcfg_write),        // write enable for vector configuration
     .imm_vcfg_o(imm_vcfg),              // immediate for vector configuration
     .vl_max_o(vl_max_o),                // set vl to VLMAX
-    .vl_keep_o(vl_keep_o),              // keep current value of vl
+    .vl_keep_o(vl_keep),              // keep current value of vl
     // LSU
-    .unit_stride_o(unit_stride_o),
-    .vmem_ops_eew_o(vmem_ops_eew_o),     // element width for vector memory operations
+    .unit_stride_o(unit_stride),
+    .vmem_ops_eew_o(vmem_ops_eew),     // element width for vector memory operations
 
     // jump/branches
     .jump_in_dec_o  (jump_in_dec),
     .branch_in_dec_o(branch_in_dec)
   );
+
+  if (RV32VX) begin
+    assign vrf_req_o = vrf_req & instr_executing;
+    assign vrf_slide_op_o = vrf_slide_op & instr_executing;
+    assign is_slide_up_o = is_slide_up_o & instr_executing;
+    assign unit_stride_o = unit_stride & instr_executing;
+    assign vl_keep_o = vl_keep & instr_executing;
+    assign vmem_ops_eew_o = vmem_ops_eew & {3{instr_executing}};
+  end else begin
+    assign vrf_req_o = 1'b0;
+    assign vrf_slide_op_o = 1'b0;
+    assign is_slide_up_o = 1'b0;
+    assign unit_stride_o = 1'b0;
+    assign vl_keep_o = 1'b0;
+    assign vmem_ops_eew_o = 3'b0;
+  end
 
   /////////////////////////////////
   // CSR-related pipeline flushes //
