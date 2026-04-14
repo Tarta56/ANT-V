@@ -297,6 +297,9 @@ module cve2_core import cve2_pkg::*; #(
   logic illegal_vec_csr_insn;
   // EEW/EMUL
   logic [2:0] vmem_ops_eew;
+
+  // Scalar CSRs <--> AGU (vec signals)
+  logic [31:0] csr_vrf_addr_start; // Starting address for vector register file accesses (used by AGU for address generation)
   
 
   // CSR control
@@ -1054,11 +1057,12 @@ module cve2_core import cve2_pkg::*; #(
     assign vrf_waddr_wb = (vx_instr) ? rf_rdata_b[4:0]   : rf_waddr_wb;
     cve2_agu #(
       .AddrWidth(32),
-      .VRF_START_ADDR   (VRF_START_ADDR),
       .VLEN(VLEN)
     ) agu_i (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
+      // vrf start address from CSR
+      .vrf_addr_start_i(csr_vrf_addr_start),
       // register addresses
       .rs1_i(vrf_raddr_a),
       .rs2_i(vrf_raddr_b),
@@ -1103,6 +1107,9 @@ module cve2_core import cve2_pkg::*; #(
     .PMPNumRegions    (PMPNumRegions),
     .RV32E            (RV32E),
     .RV32M            (RV32M),
+    .RV32VX           (RV32VX),
+    .VLEN             (VLEN),
+    .VRF_START_ADDR   (VRF_START_ADDR),
     .RV32B            (RV32B)
   ) cs_registers_i (
     .clk_i (clk_i),
@@ -1153,6 +1160,8 @@ module cve2_core import cve2_pkg::*; #(
     .debug_ebreaku_o    (debug_ebreaku),
     .trigger_match_o    (trigger_match),
 
+    // RV32VX related CSRs
+    .csr_vrfaddr_o (csr_vrf_addr_start),
     .pc_if_i(pc_if),
     .pc_id_i(pc_id),
 

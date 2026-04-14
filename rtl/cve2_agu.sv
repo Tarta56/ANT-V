@@ -14,11 +14,12 @@
 
 module cve2_agu #(
     parameter int unsigned AddrWidth = 32,
-    parameter int unsigned VRF_START_ADDR = 32'h00010000, // base address of the VRF
     parameter int unsigned VLEN = 128 // Max length in bits of vector registers
 ) (
     input logic clk_i,
     input logic rst_ni,
+
+    input logic [31:0] vrf_addr_start_i,
 
     // input logic [....] vrf_base_addr_i, // base address of the VRF
     // addresses of registers
@@ -97,28 +98,16 @@ module cve2_agu #(
     // OUTPUT //
     ////////////
 
-    // Multiplexer for the output address
-    //always_comb begin
-    //    if (load_i && is_slide_i) begin
-    //        slide_start_addr_o = {VRF_START_ADDR, !is_slide_up_i ? rs2_i : rd_i, 4'b0000};
-    //    end else begin
-    //        slide_start_addr_o = '0;
-    //    end
- //
-    //    mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR, rs1_i[4:3], addr_rs1_q, 2'b00} :
-    //                 get_rs2_i ? {VRF_START_ADDR, rs2_i[4:3], addr_rs2_q, 2'b00} :
-    //                 get_rd_i  ? {VRF_START_ADDR, rd_i[4:3], addr_rd_q, 2'b00}  : '0;
-    //end
     always_comb begin
         if (load_i && is_slide_i) begin
-            slide_start_addr_o = {VRF_START_ADDR[31:VRegAddrWidth+5], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
+            slide_start_addr_o = {vrf_addr_start_i[31:VRegAddrWidth+5], !is_slide_up_i ? rs2_i : rd_i, {VRegAddrWidth{1'b0}}};
         end else begin
             slide_start_addr_o = '0;
         end
         // chain 2 0s for byte alignment
-        mem_if_addr_o = get_rs1_i ? {VRF_START_ADDR[31:VRegAddrWidth+5], rs1_i[4:3], addr_rs1_q, 2'b00} :
-                        get_rs2_i ? {VRF_START_ADDR[31:VRegAddrWidth+5], rs2_i[4:3], addr_rs2_q, 2'b00} :
-                        get_rd_i  ? {VRF_START_ADDR[31:VRegAddrWidth+5], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
+        mem_if_addr_o = get_rs1_i ? {vrf_addr_start_i[31:VRegAddrWidth+5], rs1_i[4:3], addr_rs1_q, 2'b00} :
+                        get_rs2_i ? {vrf_addr_start_i[31:VRegAddrWidth+5], rs2_i[4:3], addr_rs2_q, 2'b00} :
+                        get_rd_i  ? {vrf_addr_start_i[31:VRegAddrWidth+5], rd_i[4:3], addr_rd_q, 2'b00}  : '0;
     end
     
 endmodule

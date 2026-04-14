@@ -21,6 +21,12 @@ module cve2_cs_registers #(
   parameter bit               PMPEnable         = 0,
   parameter int unsigned      PMPGranularity    = 0,
   parameter int unsigned      PMPNumRegions     = 4,
+  // RV32VX parameters
+  // -----------------
+  parameter bit               RV32VX            = 0,
+  parameter int unsigned      VLEN              = 0,
+  // Default initialization value for VRF base address (in case we do not want it to be all 0s)
+  parameter logic [31:0]      VRF_START_ADDR    = 32'h00020000,
   parameter bit               RV32E             = 0,
   parameter cve2_pkg::rv32m_e RV32M             = cve2_pkg::RV32MFast,
   parameter cve2_pkg::rv32b_e RV32B             = cve2_pkg::RV32BNone
@@ -77,6 +83,9 @@ module cve2_cs_registers #(
   output logic                 debug_ebreaku_o,
   output logic                 trigger_match_o,
 
+  // Custom RV32VCX CSRs
+  output logic [31:0]          csr_vrfaddr_o, 
+
   input  logic [31:0]          pc_if_i,
   input  logic [31:0]          pc_id_i,
 
@@ -111,6 +120,8 @@ import cve2_pkg::*;
   localparam int unsigned RV32MEnabled = (RV32M == RV32MNone) ? 0 : 1;
   localparam int unsigned PMPAddrWidth = (PMPGranularity > 0) ? 33 - PMPGranularity : 32;
 
+  //RV32VX localparams
+  localparam int unsigned VAddrWidth = (VLEN > 0) ? $clog2(VLEN / 8) : 0;
   // misa
   localparam logic [31:0] MISA_VALUE =
       (0                 <<  0)  // A - Atomic Instructions extension
@@ -185,6 +196,10 @@ import cve2_pkg::*;
   logic [31:0] dscratch0_q;
   logic [31:0] dscratch1_q;
   logic        dscratch0_en, dscratch1_en;
+
+  // RV32VX CSRs signals
+  logic [31:0] vrfaddr_q, vrfaddr_d;
+  logic        vrfaddr_en;
 
   // CSRs for recoverable NMIs
   // NOTE: these CSRS are nonstandard, see https://github.com/riscv/riscv-isa-manual/issues/261
@@ -396,6 +411,17 @@ import cve2_pkg::*;
         illegal_csr = ~debug_mode_i;
       end
 
+      
+      CSR_VRFADDR: begin
+        if (RV32VX) begin
+          csr_rdata_int = vrfaddr_q;
+        end else begin
+          // This CSR is not implemented in normal mode
+          csr_rdata_int = '0;
+          illegal_csr = 1'b1;
+        end
+      end 
+
       // machine counter/timers
       CSR_MCOUNTINHIBIT: csr_rdata_int = mcountinhibit;
       CSR_MHPMEVENT3,
@@ -509,6 +535,11 @@ import cve2_pkg::*;
     dscratch0_en = 1'b0;
     dscratch1_en = 1'b0;
 
+    // Custom RV32VX CSRs
+    vrfaddr_en   = 1'b0;
+    // A number of 0s that is VAddrWidth+2 (VLEN in byte * 32 regs is the size of the VRF);
+    vrfaddr_d    = {csr_wdata_int[31:VAddrWidth+2], {(VAddrWidth+2){1'b0}}};
+
     mstack_en      = 1'b0;
     mstack_d.mpie  = mstatus_q.mpie;
     mstack_d.mpp   = mstatus_q.mpp;
@@ -586,6 +617,12 @@ import cve2_pkg::*;
 
         CSR_DSCRATCH0: dscratch0_en = 1'b1;
         CSR_DSCRATCH1: dscratch1_en = 1'b1;
+
+        // Custom RV32VX CSRs
+        CSR_VRFADDR: begin
+          vrfaddr_en = 1'b1;
+          //vrfaddr_d  = {csr_wdata_int[31:VAddrWidth+2], {(VAddrWidth+2){1'b0}}};
+        end
 
         // machine counter/timers
         CSR_MCOUNTINHIBIT: mcountinhibit_we = 1'b1;
@@ -748,6 +785,16 @@ import cve2_pkg::*;
   // clock upon WFI (must be purely combinational).
   assign irqs_o        = mip & mie_q;
   assign irq_pending_o = |irqs_o;
+
+
+  // Custom RV32VX CSRs
+  // ------------------
+  // Start address of the VRF
+  if (RV32VX) begin
+    assign csr_vrfaddr_o = vrfaddr_q;
+  end else begin
+    assign csr_vrfaddr_o = '0;
+  end
 
   ////////////////////////
   // CSR instantiations //
@@ -919,6 +966,24 @@ import cve2_pkg::*;
     .rd_data_o (dscratch1_q),
     .rd_error_o()
   );
+
+  //------------
+  // RV32VX CSRs
+  //------------
+  if (RV32VX) begin : gen_rv32vx_csrs
+    cve2_csr #(
+      .Width     (32),
+      .ShadowCopy(1'b0),
+      .ResetValue(VRF_START_ADDR) // default to start of VRF
+    ) u_vrfaddr_csr (
+      .clk_i     (clk_i),
+      .rst_ni    (rst_ni),
+      .wr_data_i (vrfaddr_d), // keep the LSBs of the address to 0
+      .wr_en_i   (vrfaddr_en),
+      .rd_data_o (vrfaddr_q),
+      .rd_error_o()
+    );
+  end
 
   // MSTACK
   localparam status_stk_t MSTACK_RESET_VAL = '{mpie: 1'b1, mpp: PRIV_LVL_U};
