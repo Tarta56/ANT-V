@@ -93,6 +93,9 @@ module cve2_core import cve2_pkg::*; #(
   // SEC_CM: EXCEPTION.CTRL_FLOW.LOCAL_ESC
   // SEC_CM: EXCEPTION.CTRL_FLOW.GLOBAL_ESC
 
+  // Cluster VRF selection signal
+  output logic                          cluster_vrf_req_sel_o           
+
   // RISC-V Formal Interface
   // Does not comply with the coding standards of _i/_o suffixes, but follows
   // the convention of RISC-V Formal Interface Specification.
@@ -249,6 +252,8 @@ module cve2_core import cve2_pkg::*; #(
   logic [31:0] vrf_data_wdata;
   logic vrf_lsu_req;
 
+  // Cluster VRF selection signal
+  assign cluster_vrf_req_sel_o = vrf_req;
 
   // Slide ctrl signals
   logic vrf_slide_op; // Vector operation is a slide operation

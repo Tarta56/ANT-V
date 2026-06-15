@@ -87,6 +87,8 @@ module cve2_top import cve2_pkg::*; #(
   input  logic [31:0]                  dm_exception_addr_i,
   output crash_dump_t                  crash_dump_o,
 
+  output logic                         cluster_vrf_req_sel_o,
+
   // RISC-V Formal Interface
   // Does not comply with the coding standards of _i/_o suffixes, but follows
   // the convention of RISC-V Formal Interface Specification.
@@ -247,6 +249,8 @@ module cve2_top import cve2_pkg::*; #(
     .dm_halt_addr_i,
     .dm_exception_addr_i,
     .crash_dump_o,
+
+    .cluster_vrf_req_sel_o,
 
 `ifdef RVFI
     .rvfi_valid,
