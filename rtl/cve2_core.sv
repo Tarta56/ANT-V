@@ -94,7 +94,7 @@ module cve2_core import cve2_pkg::*; #(
   // SEC_CM: EXCEPTION.CTRL_FLOW.GLOBAL_ESC
 
   // Cluster VRF selection signal
-  output logic                          cluster_vrf_req_sel_o           
+  output logic                          cluster_vrf_req_sel_o,           
 
   // RISC-V Formal Interface
   // Does not comply with the coding standards of _i/_o suffixes, but follows
