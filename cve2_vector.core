@@ -9,7 +9,7 @@ description: "Modules for RISC-V subset of vector extension support for CVE2 CPU
 filesets:
   files_rtl:
     depend:
-      - openhwgroup:cve2:cve2_pkg
+      - openhwgroup:cve2:cve2_pkg_anthill
     files:
       - rtl/cve2_fracturable_adder.sv
       - rtl/cve2_multdiv_fast_fracturable.sv

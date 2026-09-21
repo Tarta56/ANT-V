@@ -9,8 +9,8 @@ description: "A single-issue 2-stage pipeline embedded class of RISC-V CPUs"
 filesets:
   files_rtl:
     depend:
-      - openhwgroup:cve2:cve2_pkg
-      - openhwgroup:cve2:cve2_core
+      - openhwgroup:cve2:cve2_pkg_anthill
+      - openhwgroup:cve2:cve2_core_anthill
       - polito:cve2:cve2_vector:0.1
       - "!SYNTHESIS ? (openhwgroup:cve2:cve2_clock_gate)"
       - "!SYNTHESIS ? (lowrisc:prim:buf)"

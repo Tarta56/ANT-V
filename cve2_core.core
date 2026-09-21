@@ -3,14 +3,14 @@ CAPI=2:
 # Copyright lowRISC contributors.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-name: "openhwgroup:cve2:cve2_core:0.1"
+name: "openhwgroup:cve2:cve2_core_anthill:0.1"
 description: "CVE2 CPU Core Components"
 
 filesets:
   files_rtl:
     depend:
       - lowrisc:prim:assert
-      - openhwgroup:cve2:cve2_pkg
+      - openhwgroup:cve2:cve2_pkg_anthill
       - lowrisc:dv:dv_fcov_macros
     files:
       - rtl/cve2_alu.sv

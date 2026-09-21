@@ -10,7 +10,7 @@ description: "Formal test for data independent timing"
 filesets:
   testbench:
     depend:
-      - openhwgroup:cve2:cve2_pkg
+      - openhwgroup:cve2:cve2_pkg_anthill
       - openhwgroup:cve2:cve2_multdiv
       - lowrisc:util:sv2v
     files:
